@@ -15,6 +15,10 @@ interface DraftReviewProps {
   onBack: () => void;
   inboxService: MockInboxService;
   debug?: boolean;
+  preInitializedAiService?: AIService | null;
+  preInitializedQueueManager?: EmailQueueManager | null;
+  preInitializedGenerationQueue?: InitialGenerationQueue | null;
+  preInitializedRefinementQueue?: RefinementQueue | null;
 }
 
 type ReviewState = 'loading' | 'reviewing' | 'refining-prompt' | 'manual-editing' | 'complete' | 'error';
@@ -24,15 +28,19 @@ const DraftReview: React.FC<DraftReviewProps> = ({
   onComplete,
   onBack,
   inboxService,
-  debug = false
+  debug = false,
+  preInitializedAiService,
+  preInitializedQueueManager,
+  preInitializedGenerationQueue,
+  preInitializedRefinementQueue
 }) => {
   const [state, setState] = useState<ReviewState>('loading');
-  const [queueManager] = useState(() => new EmailQueueManager(emails));
-  const [aiService] = useState(() => new AIService(inboxService));
+  const [queueManager] = useState(() => preInitializedQueueManager || new EmailQueueManager(emails));
+  const [aiService] = useState(() => preInitializedAiService || new AIService(inboxService));
   const [refinementQueue] = useState(() =>
-    new RefinementQueue(aiService.getSessionManager(), aiService.getAgentClient(), 3)
+    preInitializedRefinementQueue || new RefinementQueue(aiService.getSessionManager(), aiService.getAgentClient(), 3)
   );
-  const [generationQueue] = useState(() => new InitialGenerationQueue(aiService, 3));
+  const [generationQueue] = useState(() => preInitializedGenerationQueue || new InitialGenerationQueue(aiService, 3));
 
   const [currentItem, setCurrentItem] = useState<EmailQueueItem | null>(null);
   const [refinementInput, setRefinementInput] = useState('');
@@ -45,8 +53,11 @@ const DraftReview: React.FC<DraftReviewProps> = ({
   useEffect(() => {
     async function initialize() {
       try {
-        setLoadingMessage('Loading AI service...');
-        await aiService.initialize();
+        // Skip AI initialization if using pre-initialized service
+        if (!preInitializedAiService) {
+          setLoadingMessage('Loading AI service...');
+          await aiService.initialize();
+        }
 
         // Set up refinement queue listeners
         refinementQueue.onComplete((emailId, result, job) => {
@@ -149,14 +160,31 @@ const DraftReview: React.FC<DraftReviewProps> = ({
           }
         });
 
-        // Enqueue all emails for background processing
-        setLoadingMessage('Processing your emails...');
-        for (const email of emails) {
-          await generationQueue.enqueue(email);
-        }
+        // Only enqueue emails if not using pre-initialized queue
+        if (!preInitializedGenerationQueue) {
+          setLoadingMessage('Processing your emails...');
+          for (const email of emails) {
+            await generationQueue.enqueue(email);
+          }
+          setBackgroundStatus(`Processing ${emails.length} email${emails.length > 1 ? 's' : ''}...`);
+        } else {
+          // If using pre-initialized queues, check if we already have ready items
+          let readyCount = 0;
+          for (const email of emails) {
+            const item = queueManager.getItem(email.id);
+            if (item?.summary) readyCount++;
+          }
 
-        // Status will now be updated by listeners
-        setBackgroundStatus(`Processing ${emails.length} email${emails.length > 1 ? 's' : ''}...`);
+          if (readyCount > 0) {
+            // Immediately show first ready email
+            firstEmailReady = true;
+            const firstEmail = queueManager.getNext();
+            if (firstEmail) {
+              setCurrentItem(firstEmail);
+            }
+            setState('reviewing');
+          }
+        }
 
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Initialization failed');
@@ -165,6 +193,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
     }
 
     initialize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**

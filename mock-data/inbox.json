@@ -1,0 +1,304 @@
+{
+  "emails": [
+    {
+      "id": "1",
+      "from": {
+        "name": "Alice Johnson",
+        "email": "alice@techcorp.com"
+      },
+      "subject": "Project Timeline Update Request",
+      "date": "2024-01-21T09:15:00Z",
+      "body": "Hi there,\n\nI hope this email finds you well. I wanted to touch base regarding the Q1 project timeline we discussed last week. Our stakeholders are asking for an updated schedule, particularly around the delivery milestones for the API integration phase.\n\nCould you please provide an updated timeline by EOD Wednesday? Specifically, I need to know:\n- When will the API endpoints be ready for testing?\n- What's the expected completion date for the authentication module?\n- Are there any blockers that might impact our February 15th deadline?\n\nThanks for your attention to this.\n\nBest regards,\nAlice",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "2",
+      "from": {
+        "name": "TechDaily Newsletter",
+        "email": "newsletter@techdaily.com"
+      },
+      "subject": "This Week in Tech: AI Breakthroughs and Market Updates",
+      "date": "2024-01-21T07:00:00Z",
+      "body": "TechDaily Weekly Digest\n\n🚀 Top Stories This Week:\n\n1. Major AI Breakthrough: New Language Model Achieves Human-Level Performance\n2. Apple Announces Revolutionary Battery Technology\n3. Cybersecurity Alert: New Vulnerability Discovered in Popular Framework\n4. Market Watch: Tech Stocks Rally on Strong Earnings\n\nRead more at techdaily.com\n\nUnsubscribe | Update Preferences",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "3",
+      "from": {
+        "name": "Bob Martinez (HR)",
+        "email": "bob.martinez@company.com"
+      },
+      "subject": "Reminder: Submit Q4 Timesheet",
+      "date": "2024-01-21T08:30:00Z",
+      "body": "Hello,\n\nThis is a friendly reminder that Q4 timesheets are due by Friday, January 26th at 5:00 PM.\n\nPlease ensure all your hours are logged in the HR portal. If you have any questions about timesheet submission or need help accessing the system, please don't hesitate to reach out.\n\nYou can access the timesheet portal here: https://hr.company.com/timesheets\n\nThank you,\nBob Martinez\nHR Department",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "4",
+      "from": {
+        "name": "Sarah Chen",
+        "email": "sarah.chen@designstudio.com"
+      },
+      "subject": "Re: Logo Design Feedback",
+      "date": "2024-01-20T16:45:00Z",
+      "body": "Hi!\n\nThanks for your feedback on the initial logo concepts. I've made the revisions you requested:\n\n- Changed the color scheme to match your brand guidelines\n- Adjusted the font weight for better readability\n- Created both horizontal and vertical versions\n\nI've attached the updated designs (v2) for your review. Please let me know if these align better with your vision, or if you'd like me to explore any other directions.\n\nLooking forward to your thoughts!\n\nBest,\nSarah\n\n[Attachments: Logo_v2_horizontal.png, Logo_v2_vertical.png, Logo_v2_guidelines.pdf]",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "5",
+      "from": {
+        "name": "Amazon Web Services",
+        "email": "no-reply@aws.amazon.com"
+      },
+      "subject": "Your AWS Monthly Bill is Available",
+      "date": "2024-01-20T00:00:00Z",
+      "body": "Hello,\n\nYour AWS monthly bill for December 2023 is now available.\n\nAccount ID: 123456789\nBilling Period: December 1 - December 31, 2023\nTotal Amount: $342.67\n\nYou can view your detailed bill and download invoices in the AWS Billing Console.\n\nThank you for using AWS.\n\nAmazon Web Services",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "6",
+      "from": {
+        "name": "Michael Thompson",
+        "email": "m.thompson@client.com"
+      },
+      "subject": "Meeting Follow-up: Budget Proposal Questions",
+      "date": "2024-01-19T14:20:00Z",
+      "body": "Hi,\n\nThank you for presenting the budget proposal yesterday. The team found it very comprehensive. However, we have a few clarification questions:\n\n1. The marketing spend for Q2 seems higher than usual - could you break down the specific campaigns included?\n2. Is the $50K contingency fund sufficient given the project scope?\n3. Can you confirm if the maintenance costs include 24/7 support?\n\nWe'd appreciate your responses before our board meeting on Thursday.\n\nRegards,\nMichael Thompson\nProcurement Director",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "7",
+      "from": {
+        "name": "GitHub",
+        "email": "noreply@github.com"
+      },
+      "subject": "[Security Alert] New login to your account",
+      "date": "2024-01-21T10:00:00Z",
+      "body": "Hi username,\n\nWe noticed a new login to your GitHub account.\n\nDevice: Chrome on macOS\nLocation: San Francisco, CA, United States\nTime: January 21, 2024 at 10:00 AM PST\n\nIf this was you, you can safely ignore this email. If you didn't log in from this device and location, please secure your account immediately.\n\nSecure your account: https://github.com/settings/security\n\nThanks,\nThe GitHub Team",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "8",
+      "from": {
+        "name": "Emma Wilson",
+        "email": "emma@marketing.agency"
+      },
+      "subject": "Quick question about campaign metrics",
+      "date": "2024-01-21T11:30:00Z",
+      "body": "Hey!\n\nHope you're having a good Monday! I'm putting together the monthly report and realized I'm missing the conversion rates for the email campaign we ran last week.\n\nDo you have those numbers handy? I specifically need:\n- Open rate\n- Click-through rate\n- Conversion rate\n- Total revenue attributed\n\nNo rush, but if you could send them by tomorrow afternoon that would be great!\n\nThanks,\nEmma",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "9",
+      "from": {
+        "name": "Slack",
+        "email": "no-reply@slack.com"
+      },
+      "subject": "Your weekly Slack recap",
+      "date": "2024-01-21T06:00:00Z",
+      "body": "Your weekly activity in Workspace Name\n\n📊 Your stats:\n- Messages sent: 47\n- Channels active in: 6\n- Files shared: 3\n\n🔥 Most active channels:\n1. #general (23 messages)\n2. #project-alpha (15 messages)\n3. #random (9 messages)\n\nMissed anything? Catch up in Slack.\n\nManage email preferences | Unsubscribe",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "10",
+      "from": {
+        "name": "David Park",
+        "email": "dpark@startup.io"
+      },
+      "subject": "Invitation: Technical Interview - Senior Engineer Position",
+      "date": "2024-01-20T13:00:00Z",
+      "body": "Dear Candidate,\n\nThank you for your interest in the Senior Engineer position at StartupIO. We were impressed with your background and would like to invite you for a technical interview.\n\nWe have the following time slots available next week:\n- Tuesday, Jan 30: 2:00 PM - 3:30 PM PST\n- Wednesday, Jan 31: 10:00 AM - 11:30 AM PST\n- Thursday, Feb 1: 3:00 PM - 4:30 PM PST\n\nThe interview will be conducted via Zoom and will include:\n- Technical discussion (45 mins)\n- Coding exercise (30 mins)\n- Q&A (15 mins)\n\nPlease reply with your preferred time slot, and I'll send you the calendar invite.\n\nBest regards,\nDavid Park\nEngineering Manager",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "11",
+      "from": {
+        "name": "Jenny Liu",
+        "email": "jenny.liu@nonprofit.org"
+      },
+      "subject": "Thank you for your donation!",
+      "date": "2024-01-19T09:00:00Z",
+      "body": "Dear Supporter,\n\nOn behalf of everyone at Community Aid Foundation, I want to express our heartfelt gratitude for your generous donation of $100.\n\nYour contribution will help us:\n- Provide meals for 40 families in need\n- Support our after-school tutoring programs\n- Maintain our community shelter\n\nWe'll send you a tax receipt shortly. If you have any questions or would like to learn more about our programs, please don't hesitate to reach out.\n\nWith gratitude,\nJenny Liu\nDevelopment Director",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "12",
+      "from": {
+        "name": "Tom Bradley",
+        "email": "tom@consultancy.com"
+      },
+      "subject": "Contract renewal discussion",
+      "date": "2024-01-21T10:45:00Z",
+      "body": "Hi,\n\nAs we approach the end of our current contract term (March 31st), I wanted to reach out about renewal options.\n\nWe've really enjoyed working with your team this year and would love to continue the partnership. I'd like to discuss:\n\n1. Scope adjustments based on your evolving needs\n2. Pricing for the next 12-month term\n3. Any new services you might need\n\nWould you be available for a 30-minute call this week or next to discuss? I'm generally free Tuesday/Thursday afternoons.\n\nLooking forward to continuing our collaboration!\n\nBest,\nTom",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "13",
+      "from": {
+        "name": "LinkedIn",
+        "email": "notifications@linkedin.com"
+      },
+      "subject": "You have 5 new profile views",
+      "date": "2024-01-21T12:00:00Z",
+      "body": "Your profile is getting noticed!\n\n5 people viewed your profile in the last week.\n\nSee who's viewing your profile and discover how they found you.\n\nRecent viewers from:\n- Google (2 viewers)\n- Microsoft (1 viewer)\n- Apple (1 viewer)\n- Meta (1 viewer)\n\nView all profile viewers → \n\nLinkedIn Corporation | Unsubscribe | Help",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "14",
+      "from": {
+        "name": "Rachel Green",
+        "email": "rgreen@lawfirm.com"
+      },
+      "subject": "Document Review - Urgent",
+      "date": "2024-01-21T13:15:00Z",
+      "body": "Hi,\n\nI need your urgent review of the attached service agreement before we can proceed with signing.\n\nKey areas to review:\n- Section 4.2: Liability limitations\n- Section 7: Termination clauses\n- Exhibit A: Scope of work\n\nThe client is expecting a signed copy by end of business today. Please let me know if you see any red flags or have concerns about any of the terms.\n\nI'm available on my cell if you need to discuss: 555-0123\n\nThanks,\nRachel\n\n[Attachment: Service_Agreement_DRAFT_v3.pdf]",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "15",
+      "from": {
+        "name": "Spotify",
+        "email": "no-reply@spotify.com"
+      },
+      "subject": "Your 2023 Wrapped is here!",
+      "date": "2024-01-18T10:00:00Z",
+      "body": "Your year in music awaits!\n\nHi music lover,\n\nYour 2023 Wrapped is ready! Discover your top songs, artists, and genres from the past year.\n\nHighlights:\n🎵 You listened to 42,736 minutes of music\n🎤 Your top artist: Arctic Monkeys\n🎼 Your top song: 'Fluorescent Adolescent'\n🎸 You explored 84 different genres\n\nSee your full Wrapped experience in the Spotify app!\n\nKeep listening,\nSpotify",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "16",
+      "from": {
+        "name": "Kate Anderson",
+        "email": "kate@productteam.io"
+      },
+      "subject": "User feedback from beta testing",
+      "date": "2024-01-20T15:30:00Z",
+      "body": "Hey team,\n\nWe've completed the first week of beta testing and the feedback is mostly positive! Here's a quick summary:\n\n✅ Positive:\n- Users love the new UI\n- Performance improvements are noticeable\n- Onboarding flow is much clearer\n\n⚠️ Issues reported:\n- Login bug on Android (affecting ~15% of users)\n- Some confusion around the new settings menu\n- Feature X needs better documentation\n\nI think we should prioritize fixing the Android login bug before the public launch. What do you think?\n\nFull report attached.\n\nKate\n\n[Attachment: Beta_Testing_Report_Week1.pdf]",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "17",
+      "from": {
+        "name": "Office Manager",
+        "email": "facilities@company.com"
+      },
+      "subject": "Office Closed Monday - Holiday",
+      "date": "2024-01-19T17:00:00Z",
+      "body": "All Staff,\n\nThis is a reminder that the office will be closed on Monday, January 22nd for the federal holiday.\n\nBuilding access will be restricted. If you need to come in for any reason, please contact security at security@company.com to arrange access.\n\nRegular office hours will resume on Tuesday, January 23rd.\n\nHave a great long weekend!\n\nFacilities Team",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "18",
+      "from": {
+        "name": "Chris Wong",
+        "email": "cwong@vendor.com"
+      },
+      "subject": "Invoice #4521 - Payment Overdue",
+      "date": "2024-01-21T09:00:00Z",
+      "body": "Hello,\n\nI hope this email finds you well. I'm reaching out regarding Invoice #4521 for $5,420.00, which was due on January 10th.\n\nOur records show this invoice is still outstanding. Could you please check on the payment status? If there are any issues with the invoice or if you need any additional documentation, please let me know.\n\nInvoice details:\n- Invoice #: 4521\n- Date: December 15, 2023\n- Amount: $5,420.00\n- Services: December consulting services\n\nI've attached a copy of the invoice for your reference.\n\nThank you for your prompt attention to this matter.\n\nBest regards,\nChris Wong\nAccounts Receivable\n\n[Attachment: Invoice_4521.pdf]",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "19",
+      "from": {
+        "name": "Medium Daily Digest",
+        "email": "noreply@medium.com"
+      },
+      "subject": "Your daily reading recommendations",
+      "date": "2024-01-21T08:00:00Z",
+      "body": "Based on your reading history\n\nToday's top stories for you:\n\n1. \"The Future of Remote Work in 2024\" by Jane Smith\n   8 min read · 👏 2.4K\n\n2. \"Understanding Microservices Architecture\" by Tech Blog\n   12 min read · 👏 1.8K\n\n3. \"10 Productivity Hacks That Actually Work\" by ProductivityGuru\n   5 min read · 👏 3.2K\n\nMore stories based on your interests →\n\nAdjust your digest settings | Unsubscribe",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "20",
+      "from": {
+        "name": "Lisa Park",
+        "email": "lisa@eventplanning.co"
+      },
+      "subject": "Team building event - venue options",
+      "date": "2024-01-20T11:00:00Z",
+      "body": "Hi everyone,\n\nI've researched venues for our Q1 team building event (March 15th, ~50 people). Here are the top 3 options:\n\n1. **Bayview Conference Center**\n   - Cost: $2,500 (includes lunch)\n   - Pros: Great location, parking included\n   - Cons: No outdoor space\n\n2. **Mountain Ridge Resort**\n   - Cost: $3,200 (includes lunch + activities)\n   - Pros: Beautiful setting, team activities included\n   - Cons: 45-minute drive from office\n\n3. **City Loft Space**\n   - Cost: $1,800 (catering separate)\n   - Pros: Downtown location, modern space\n   - Cons: Limited parking\n\nPlease vote for your preference by replying to this email by Wednesday!\n\nThanks,\nLisa",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "21",
+      "from": {
+        "name": "Daniel Martinez",
+        "email": "daniel@photography.com"
+      },
+      "subject": "Photos from company event ready!",
+      "date": "2024-01-19T16:00:00Z",
+      "body": "Hi there!\n\nThe photos from last week's company anniversary event are ready! I've edited and uploaded all 250+ images to the gallery.\n\nYou can view and download them here: [photo gallery link]\nPassword: CompanyEvent2024\n\nThe link will be active for 30 days. If you need specific shots for marketing materials or want any additional edits, just let me know!\n\nIt was great working with your team. Looking forward to the next event!\n\nBest,\nDaniel Martinez\nEvent Photographer",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "22",
+      "from": {
+        "name": "Security Team",
+        "email": "security@company.com"
+      },
+      "subject": "Mandatory Security Training - Action Required",
+      "date": "2024-01-21T07:30:00Z",
+      "body": "Dear Employee,\n\nYou are required to complete the annual security awareness training by January 31, 2024.\n\nOur records show you have not yet completed this mandatory training. The training covers:\n- Phishing awareness\n- Password best practices\n- Data handling procedures\n- Incident reporting\n\nTime required: Approximately 45 minutes\n\nClick here to access the training: [training portal link]\n\nFailure to complete the training by the deadline may result in temporary suspension of system access.\n\nIf you have already completed the training, please disregard this message.\n\nThank you,\nInformation Security Team",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "23",
+      "from": {
+        "name": "Zoom",
+        "email": "no-reply@zoom.us"
+      },
+      "subject": "Your Cloud Recording is Ready",
+      "date": "2024-01-20T14:45:00Z",
+      "body": "Hi,\n\nYour cloud recording is now available.\n\nMeeting Topic: Weekly Team Sync\nDate & Time: Jan 20, 2024 02:00 PM Pacific Time\nDuration: 42 minutes\n\nView Recording: [link]\nPassword: Abc123!\n\nThis recording will be automatically deleted after 30 days.\n\nDownload or share your recording from your Zoom account.\n\nThe Zoom Team",
+      "unread": true,
+      "requiresResponse": false
+    },
+    {
+      "id": "24",
+      "from": {
+        "name": "Alex Rivera",
+        "email": "alex@recruiting.firm"
+      },
+      "subject": "Exciting opportunity at Tech Giant Inc",
+      "date": "2024-01-21T11:00:00Z",
+      "body": "Hi,\n\nI came across your profile and was impressed by your experience in cloud architecture. I'm working with Tech Giant Inc on a Senior Cloud Architect role that seems like a perfect fit for your background.\n\nKey details:\n- Base salary: $180-220k\n- Location: San Francisco (hybrid - 2 days/week in office)\n- Great benefits + equity\n- Working on cutting-edge distributed systems\n\nThe team is looking for someone with your exact skill set - especially your experience with Kubernetes and AWS.\n\nWould you be open to a brief call this week to discuss? Even if you're not actively looking, it could be worth exploring.\n\nBest regards,\nAlex Rivera\nSenior Technical Recruiter",
+      "unread": true,
+      "requiresResponse": true
+    },
+    {
+      "id": "25",
+      "from": {
+        "name": "Nike",
+        "email": "nike@emails.nike.com"
+      },
+      "subject": "Your order has shipped! 🚚",
+      "date": "2024-01-19T12:00:00Z",
+      "body": "Great news! Your order is on its way.\n\nOrder #: NK-789456123\nTracking #: 1Z999AA1234567890\n\nItems:\n- Air Max 90 (Size 10) - $130.00\n- Nike Dri-FIT Shirt (L) - $35.00\n\nSubtotal: $165.00\nShipping: FREE\nTotal: $165.00\n\nEstimated delivery: January 23-24\n\nTrack your package: [tracking link]\n\nJust Do It.\nNike",
+      "unread": true,
+      "requiresResponse": false
+    }
+  ]
+}
