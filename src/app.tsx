@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import { MockInboxService } from './services/mockInbox.js';
+import { GmailService } from './services/gmail.js';
 import { Email, EmailDraft } from './types/email.js';
 import { AIService } from './services/ai.js';
 import { EmailQueueManager } from './services/email-queue-manager.js';
@@ -12,14 +13,15 @@ import DraftReview from './components/DraftReview.js';
 interface AppProps {
   resetInbox?: boolean;
   debug?: boolean;
+  useGmail?: boolean;
 }
 
 type AppState = 'loading' | 'dashboard' | 'reviewing' | 'complete' | 'error';
 
-const App: React.FC<AppProps> = ({ resetInbox = false, debug = false }) => {
+const App: React.FC<AppProps> = ({ resetInbox = false, debug = false, useGmail = false }) => {
   const [state, setState] = useState<AppState>('loading');
   const [error, setError] = useState<string>('');
-  const [inboxService] = useState(() => new MockInboxService());
+  const [inboxService] = useState(() => useGmail ? new GmailService() as any : new MockInboxService());
   const [emails, setEmails] = useState<Email[]>([]);
   const [processedDrafts, setProcessedDrafts] = useState<EmailDraft[]>([]);
   const [batchOffset, setBatchOffset] = useState(0);

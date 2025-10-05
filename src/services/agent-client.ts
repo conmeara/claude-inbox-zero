@@ -1,13 +1,17 @@
 import { query, createSdkMcpServer, tool, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { MockInboxService } from './mockInbox.js';
+import * as path from 'path';
 
 export interface AgentQueryOptions {
   maxTurns?: number;
+  cwd?: string;
   model?: string;
   allowedTools?: string[];
   appendSystemPrompt?: string;
   resume?: string;
+  hooks?: any;
+  mcpServers?: any;
 }
 
 /**
@@ -23,15 +27,19 @@ export class AgentClient {
     this.inboxService = inboxService;
     this.customTools = this.createCustomTools();
     this.defaultOptions = {
-      maxTurns: 10,
+      maxTurns: 100,
+      cwd: path.join(process.cwd(), '.claude'),
       model: 'sonnet',
       allowedTools: [
-        'Read', 'Grep', 'Glob',
+        'Task', 'Bash', 'Glob', 'Grep', 'Read', 'Edit', 'MultiEdit', 'Write',
+        'WebFetch', 'TodoWrite', 'WebSearch', 'BashOutput', 'KillBash',
         'mcp__inbox__search_inbox',
         'mcp__inbox__read_email',
+        'mcp__inbox__read_emails',
         'mcp__inbox__list_unread'
       ],
-      appendSystemPrompt: this.getSystemPrompt()
+      appendSystemPrompt: this.getSystemPrompt(),
+      hooks: this.createHooks()
     };
   }
 
@@ -46,36 +54,67 @@ export class AgentClient {
       tools: [
         tool(
           'search_inbox',
-          'Search emails in the mock inbox by sender, subject, or content',
+          'Search emails using Gmail query syntax (works with both Mock and Gmail)',
           {
-            query: z.string().optional().describe('Search query to match in subject or body'),
-            from: z.string().optional().describe('Filter by sender name or email'),
-            requiresResponse: z.boolean().optional().describe('Filter by whether email requires response')
+            gmailQuery: z.string().describe(`Gmail query string (e.g., 'from:sender@example.com subject:invoice newer_than:7d')
+Supported operators:
+- from:email - Emails from specific sender
+- to:email - Emails to specific recipient
+- subject:keyword - Search in subject line
+- has:attachment - Emails with attachments
+- is:unread - Unread emails
+- newer_than:7d - Emails from last 7 days
+- older_than:1m - Emails older than 1 month
+- OR - Match either term: (invoice OR receipt)
+- AND - Match both terms (space implies AND)
+- "" - Exact phrase: "quarterly report"
+- - - Exclude: invoice -draft`),
+            limit: z.number().optional().describe('Maximum number of emails to return (default: 30)')
           },
           async (args) => {
             try {
-              const results = await this.inboxService.search({
-                query: args.query,
-                from: args.from,
-                requiresResponse: args.requiresResponse
-              });
+              // Check if inbox service supports Gmail queries (GmailService)
+              const hasSearchWithLogs = 'searchWithLogs' in this.inboxService;
 
-              return {
-                content: [{
-                  type: 'text',
-                  text: JSON.stringify({
-                    totalResults: results.length,
-                    emails: results.map(email => ({
-                      id: email.id,
-                      from: `${email.from.name} <${email.from.email}>`,
-                      subject: email.subject,
-                      date: email.date,
-                      requiresResponse: email.requiresResponse,
-                      snippet: email.body.substring(0, 150) + '...'
-                    }))
-                  }, null, 2)
-                }]
-              };
+              if (hasSearchWithLogs) {
+                // Use log file pattern for Gmail
+                const result = await (this.inboxService as any).searchWithLogs(args.gmailQuery);
+
+                return {
+                  content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                      totalResults: result.totalResults,
+                      logFilePath: result.logFilePath,
+                      ids: result.ids,
+                      message: `Full email search results written to ${result.logFilePath}. Use Read or Grep tools to analyze the log file.`
+                    }, null, 2)
+                  }]
+                };
+              } else {
+                // Fallback for MockInboxService - simple search
+                const results = await this.inboxService.search({ gmailQuery: args.gmailQuery } as any);
+                const limit = args.limit || 30;
+                const limited = results.slice(0, limit);
+
+                return {
+                  content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                      totalResults: results.length,
+                      showing: limited.length,
+                      emails: limited.map(email => ({
+                        id: email.id,
+                        from: `${email.from.name} <${email.from.email}>`,
+                        subject: email.subject,
+                        date: email.date,
+                        requiresResponse: email.requiresResponse,
+                        snippet: email.body.substring(0, 150) + '...'
+                      }))
+                    }, null, 2)
+                  }]
+                };
+              }
             } catch (error: any) {
               return {
                 content: [{
@@ -134,6 +173,65 @@ export class AgentClient {
         ),
 
         tool(
+          'read_emails',
+          'Read multiple emails by their IDs to get full content and details (batch operation)',
+          {
+            ids: z.array(z.string()).describe('Array of email IDs to fetch (e.g., ["id1", "id2", "id3"])')
+          },
+          async (args) => {
+            try {
+              // Check if inbox service supports batch read (GmailService)
+              const hasBatchRead = 'getByIds' in this.inboxService;
+
+              let emails;
+              if (hasBatchRead) {
+                emails = await (this.inboxService as any).getByIds(args.ids);
+              } else {
+                // Fallback: fetch one by one
+                emails = [];
+                for (const id of args.ids) {
+                  const email = await this.inboxService.getById(id);
+                  if (email) {
+                    emails.push(email);
+                  }
+                }
+              }
+
+              const formattedResults = emails.map((email, index) => ({
+                index: index + 1,
+                id: email.id,
+                from: {
+                  name: email.from.name,
+                  email: email.from.email
+                },
+                subject: email.subject,
+                date: email.date,
+                body: email.body,
+                requiresResponse: email.requiresResponse,
+                unread: email.unread
+              }));
+
+              return {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify({
+                    totalFetched: formattedResults.length,
+                    emails: formattedResults
+                  }, null, 2)
+                }]
+              };
+            } catch (error: any) {
+              return {
+                content: [{
+                  type: 'text',
+                  text: `Error reading emails: ${error.message}`
+                }]
+              };
+            }
+          }
+        ),
+
+        tool(
           'list_unread',
           'Get a list of all unread emails',
           {
@@ -173,6 +271,79 @@ export class AgentClient {
         )
       ]
     });
+  }
+
+  /**
+   * Create PreToolUse hooks for validation and security
+   * Pattern from Anthropic sample's ai-client.ts
+   */
+  private createHooks() {
+    return {
+      PreToolUse: [
+        {
+          matcher: "Write|Edit|MultiEdit",
+          hooks: [
+            async (input: any) => {
+              const toolName = input.tool_name;
+              const toolInput = input.tool_input;
+
+              if (!['Write', 'Edit', 'MultiEdit'].includes(toolName)) {
+                return { continue: true };
+              }
+
+              let filePath = '';
+              if (toolName === 'Write' || toolName === 'Edit') {
+                filePath = toolInput.file_path || '';
+              } else if (toolName === 'MultiEdit') {
+                filePath = toolInput.file_path || '';
+              }
+
+              // Prevent writing to critical system files
+              const restrictedPaths = [
+                '/etc/',
+                '/usr/',
+                '/bin/',
+                '/sbin/',
+                '/System/',
+                'package.json',
+                'package-lock.json',
+                'tsconfig.json'
+              ];
+
+              for (const restricted of restrictedPaths) {
+                if (filePath.includes(restricted)) {
+                  return {
+                    decision: 'block',
+                    stopReason: `Cannot modify system or config file: ${filePath}. This file is restricted for safety.`,
+                    continue: false
+                  };
+                }
+              }
+
+              // Only allow writing to project directories
+              const allowedDirectories = [
+                'src/',
+                'mock-data/',
+                '.claude/',
+                'logs/'
+              ];
+
+              const isInAllowedDir = allowedDirectories.some(dir => filePath.includes(dir));
+
+              if (!isInAllowedDir && filePath) {
+                return {
+                  decision: 'block',
+                  stopReason: `Files should be written to allowed directories: ${allowedDirectories.join(', ')}. Attempted: ${filePath}`,
+                  continue: false
+                };
+              }
+
+              return { continue: true };
+            }
+          ]
+        }
+      ]
+    };
   }
 
   /**

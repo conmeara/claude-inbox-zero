@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Claude Inbox is an AI-powered email triage assistant that runs in the terminal. This is an MVP implementation that demonstrates the core concept using mock email data instead of real Gmail integration.
+Claude Inbox is an AI-powered email triage assistant that runs in the terminal. It supports both **mock email data** (for demos/testing) and **real Gmail integration** (for production use) via OAuth2.
 
 ## Email Writing Style Guidelines
 
@@ -50,11 +50,49 @@ Best regards,
 ### Building and Running
 - `npm run build` - Compile TypeScript to JavaScript (required before running)
 - `npm run dev` - Run in development mode with auto-reload using tsx
-- `npm run start` - Run the compiled application 
+- `npm run start` - Run the compiled application (uses mock data by default)
 - `npm run typecheck` - Type check without compilation
-- `node dist/cli.js` - Direct execution of built CLI
+
+### CLI Commands
+
+**Main Usage:**
+- `node dist/cli.js` - Run with mock email data
+- `node dist/cli.js --gmail` - Run with real Gmail account
 - `node dist/cli.js --reset` - Reset mock emails to unread (for demo/testing)
 - `node dist/cli.js --debug` - Enable debug mode with additional information
+
+**Setup Commands:**
+- `node dist/cli.js setup` - Configure Anthropic API key
+- `node dist/cli.js setup-gmail` - Authenticate with Gmail via OAuth2
+- `node dist/cli.js revoke-gmail` - Revoke Gmail authentication
+- `node dist/cli.js test` - Test API key configuration
+- `node dist/cli.js status` - Show current configuration status
+
+### Gmail Setup
+
+**First Time Gmail Setup:**
+1. Set environment variables (optional - uses default test credentials if not set):
+   ```bash
+   export GMAIL_CLIENT_ID="your-client-id"
+   export GMAIL_CLIENT_SECRET="your-client-secret"
+   ```
+
+2. Authenticate with Gmail:
+   ```bash
+   npm run build
+   node dist/cli.js setup-gmail
+   ```
+   This will open your browser for OAuth2 authentication.
+
+3. Run with Gmail:
+   ```bash
+   node dist/cli.js --gmail
+   ```
+
+**Gmail Authentication Details:**
+- OAuth credentials stored in: `~/.claude-inbox/gmail-token.json`
+- Tokens are auto-refreshed when expired
+- Required scopes: gmail.readonly, gmail.modify, gmail.compose, gmail.send
 
 ### Development Workflow
 Always run `npm run build` after making TypeScript changes before testing with `npm run start`. Use `npm run dev` for active development with auto-reload.
@@ -76,9 +114,22 @@ The app follows a state machine pattern with these main states:
 - **SendConfirm.tsx** - Final review and mock sending simulation
 
 ### Service Layer
-- **MockInboxService** - Manages email data from `mock-data/inbox.json`, handles read/unread state persistence
-- **AIService** - Full Claude API integration with batch processing, personalized writing style, and intelligent fallbacks
-- **MemoryService** - Stub for future CLAUDE.md user style preferences integration
+
+**Email Services:**
+- **MockInboxService** - Manages mock email data from `mock-data/inbox.json`, handles read/unread state persistence
+- **GmailService** - Real Gmail API integration via OAuth2, supports Gmail query syntax and log file pattern
+- **GmailAuthService** - Handles OAuth2 authentication flow with token storage and auto-refresh
+
+**AI Services:**
+- **AIService** - Claude API integration with batch processing, personalized writing style, and intelligent fallbacks
+- **AgentClient** - Wrapper around Claude Agent SDK with custom MCP tools and PreToolUse hooks
+- **SessionManager** - Manages multi-turn conversations for email draft refinement
+- **MemoryService** - Loads writing style preferences from CLAUDE.md
+
+**Queue Services:**
+- **EmailQueueManager** - Coordinates background email processing
+- **InitialGenerationQueue** - Generates summaries and drafts in background
+- **RefinementQueue** - Handles async draft refinement with multi-turn support
 
 ### Data Flow
 1. MockInboxService loads 25 mock emails from JSON
@@ -133,14 +184,111 @@ Set `ANTHROPIC_API_KEY` environment variable to enable real AI features.
 - `mock-data/inbox.json` - 25 realistic emails covering various scenarios
 - ES module imports use .js extensions (not .ts) due to TypeScript ES module compilation
 
+## Advanced Features
+
+### Subagent Architecture
+
+The app uses specialized subagents defined in `.claude/agents/` directory (based on Anthropic's best practices):
+
+**email-searcher.md** - Email search specialist
+- Finds relevant emails using strategic Gmail query syntax
+- Analyzes results and provides actionable insights
+- Works with log files for large result sets
+- Tools: Read, Bash, Glob, Grep, mcp__inbox__search_inbox, mcp__inbox__read_emails
+
+**draft-writer.md** - Email draft specialist
+- Writes and refines professional email replies
+- Adapts tone and style based on user feedback
+- Searches inbox for context when needed
+- Tools: Read, mcp__inbox__search_inbox, mcp__inbox__read_emails, mcp__inbox__read_email
+
+### MCP Custom Tools
+
+The AgentClient provides custom MCP tools for inbox operations:
+
+**mcp__inbox__search_inbox** - Gmail query search
+- Supports full Gmail query syntax
+- For Gmail mode: Returns log file path with results
+- For Mock mode: Returns results directly
+- Example: `from:alice budget report newer_than:7d`
+
+**mcp__inbox__read_email** - Read single email
+- Fetches full email content by ID
+- Returns complete email body (not just snippet)
+
+**mcp__inbox__read_emails** - Batch read emails
+- Fetches multiple emails by IDs in one call
+- More efficient than reading individually
+
+**mcp__inbox__list_unread** - List unread emails
+- Returns unread emails with configurable limit
+
+### Gmail Query Syntax
+
+Both Mock and Gmail modes support Gmail's powerful query operators:
+
+**Basic Operators:**
+- `from:email` - Emails from specific sender
+- `to:email` - Emails to specific recipient
+- `subject:keyword` - Search in subject line
+- `has:attachment` - Emails with attachments
+- `is:unread` - Unread emails only
+- `newer_than:7d` - From last 7 days
+- `older_than:1m` - Older than 1 month
+
+**Advanced Operators:**
+- `OR` - Match either: `(invoice OR receipt)`
+- `AND` - Match both (space implies AND): `invoice payment`
+- `""` - Exact phrase: `"quarterly report"`
+- `-` - Exclude: `invoice -draft`
+- `()` - Group terms: `from:vendor.com (invoice OR receipt)`
+
+### Log File Pattern (Gmail Mode)
+
+When using Gmail, search results are written to timestamped JSON log files:
+- Location: `~/.claude-inbox/logs/gmail-search-*.json`
+- Contains: Full email data including bodies
+- Prevents context overflow with large result sets
+- Claude can use Read/Grep tools to analyze logs
+
+Example workflow:
+```
+1. search_inbox returns: { logFilePath: "logs/gmail-search-2025...json", ids: [...] }
+2. Agent uses Read tool to examine log file
+3. Agent uses Grep to find specific patterns
+4. Agent uses read_emails with IDs for detailed analysis
+```
+
+### PreToolUse Hooks
+
+The AgentClient includes validation hooks to prevent unsafe operations:
+- Blocks writes to system directories (/etc, /usr, /bin, etc.)
+- Blocks modifications to config files (package.json, tsconfig.json)
+- Only allows writes to: src/, mock-data/, .claude/, logs/
+- Provides clear error messages when blocked
+
+### Session Management
+
+Multi-turn conversations for draft refinement:
+- Each email draft has its own session
+- Session IDs are captured and reused
+- Context maintained across multiple refinements
+- Supports complex feedback like "AI: make this more formal, then add urgency"
+
 ## Known Limitations
 
-This MVP intentionally uses mock implementations for:
-- Email sending (simulation only)
-- Gmail integration (mock JSON data)  
-- OAuth authentication (not implemented)
+**Email Sending:**
+- Currently simulation only (displays confirmation, doesn't actually send)
+- Future: Add Gmail send API integration
 
-The AIService now includes real Claude API integration with pattern-matching fallbacks for reliability.
+**Mock Mode:**
+- Gmail query syntax has limited support (basic search only)
+- No log file pattern (results returned directly)
+- 25 pre-defined mock emails
+
+**Gmail Mode:**
+- Requires OAuth2 setup with Google Cloud Console for custom client ID/secret
+- Default test credentials provided but may have rate limits
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
