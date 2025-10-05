@@ -16,6 +16,8 @@ export class EmailQueueManager {
   private completedQueue: EmailQueueItem[] = [];
   private currentItem: EmailQueueItem | null = null;
   private itemsById: Map<string, EmailQueueItem> = new Map();
+  private allItems: EmailQueueItem[] = []; // For navigation
+  private currentIndex: number = -1; // Current position in allItems
 
   constructor(emails: Email[]) {
     // Initialize primary queue with all emails
@@ -31,6 +33,9 @@ export class EmailQueueManager {
     this.primaryQueue.forEach(item => {
       this.itemsById.set(item.email.id, item);
     });
+
+    // Store all items for navigation
+    this.allItems = [...this.primaryQueue];
   }
 
   /**
@@ -43,6 +48,8 @@ export class EmailQueueManager {
       const item = this.refinedQueue.shift()!;
       item.state = 'reviewing';
       this.currentItem = item;
+      // Update index
+      this.currentIndex = this.allItems.findIndex(i => i.email.id === item.email.id);
       return item;
     }
 
@@ -51,11 +58,43 @@ export class EmailQueueManager {
       const item = this.primaryQueue.shift()!;
       item.state = 'reviewing';
       this.currentItem = item;
+      // Update index
+      this.currentIndex = this.allItems.findIndex(i => i.email.id === item.email.id);
       return item;
     }
 
     // All queues empty
     return null;
+  }
+
+  /**
+   * Get the previous email in sequence (for navigation)
+   */
+  getPrevious(): EmailQueueItem | null {
+    if (this.currentIndex <= 0) {
+      return null; // Already at first item
+    }
+
+    this.currentIndex--;
+    const item = this.allItems[this.currentIndex];
+    item.state = 'reviewing';
+    this.currentItem = item;
+    return item;
+  }
+
+  /**
+   * Get the next email in sequence (for navigation, different from getNext which uses queues)
+   */
+  getNextInSequence(): EmailQueueItem | null {
+    if (this.currentIndex >= this.allItems.length - 1) {
+      return null; // Already at last item
+    }
+
+    this.currentIndex++;
+    const item = this.allItems[this.currentIndex];
+    item.state = 'reviewing';
+    this.currentItem = item;
+    return item;
   }
 
   /**

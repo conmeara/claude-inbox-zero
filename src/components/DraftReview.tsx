@@ -21,7 +21,7 @@ interface DraftReviewProps {
   preInitializedRefinementQueue?: RefinementQueue | null;
 }
 
-type ReviewState = 'loading' | 'reviewing' | 'refining-prompt' | 'manual-editing' | 'complete' | 'error';
+type ReviewState = 'loading' | 'reviewing' | 'manual-editing' | 'complete' | 'error';
 
 const DraftReview: React.FC<DraftReviewProps> = ({
   emails,
@@ -227,30 +227,32 @@ const DraftReview: React.FC<DraftReviewProps> = ({
     if (state === 'reviewing') {
       if (!currentItem) return;
 
-      if (currentItem.draft) {
-        // Email with draft
-        if (key.tab) {
-          handleAccept();
-        } else if (input.toLowerCase() === 'r') {
-          startRefinementMode();
-        } else if (input.toLowerCase() === 'e') {
+      // Tab - Always accept (mark read and move forward)
+      if (key.tab && !key.shift) {
+        handleAccept();
+      }
+      // Shift-Tab - Skip (mark unread and move forward)
+      else if (key.tab && key.shift) {
+        handleSkip();
+      }
+      // Cmd+Left Arrow - Navigate backwards
+      else if (key.leftArrow && key.meta) {
+        handleNavigateBackward();
+      }
+      // Cmd+Right Arrow - Navigate forwards
+      else if (key.rightArrow && key.meta) {
+        handleNavigateForward();
+      }
+      // Control-E - Enter manual edit mode
+      else if (key.ctrl && input === 'e') {
+        if (currentItem.draft) {
           startManualEditMode();
-        } else if (input.toLowerCase() === 's') {
-          handleSkip();
-        } else if (input.toLowerCase() === 'b') {
-          onBack();
-        }
-      } else {
-        // Informational email (no draft)
-        if (input.toLowerCase() === 's' || key.return) {
-          handleSkip();
-        } else if (input.toLowerCase() === 'b') {
-          onBack();
         }
       }
-    } else if (state === 'refining-prompt' && key.escape) {
-      setState('reviewing');
-      setRefinementInput('');
+      // Escape - Clear chat input
+      else if (key.escape) {
+        setRefinementInput('');
+      }
     } else if (state === 'manual-editing' && key.escape) {
       setState('reviewing');
       setManualEditInput('');
@@ -271,14 +273,22 @@ const DraftReview: React.FC<DraftReviewProps> = ({
     loadNextEmail();
   };
 
-  const startRefinementMode = () => {
-    setState('refining-prompt');
-    setRefinementInput('');
+  const handleNavigateBackward = () => {
+    const previous = queueManager.getPrevious();
+    if (previous) {
+      setCurrentItem(previous);
+    }
+  };
+
+  const handleNavigateForward = () => {
+    const next = queueManager.getNextInSequence();
+    if (next) {
+      setCurrentItem(next);
+    }
   };
 
   const submitRefinement = async () => {
     if (!currentItem || !currentItem.draft || !refinementInput.trim()) {
-      setState('reviewing');
       return;
     }
 
@@ -288,7 +298,6 @@ const DraftReview: React.FC<DraftReviewProps> = ({
     const turnCount = aiService.getSessionManager().getTurnCount(currentItem.email.id);
     if (turnCount >= 10) {
       setError('Maximum refinement limit reached (10 rounds). Please use manual edit instead.');
-      setState('reviewing');
       setRefinementInput('');
       return;
     }
@@ -402,35 +411,6 @@ const DraftReview: React.FC<DraftReviewProps> = ({
 
   const queueStatus = queueManager.getStatus();
 
-  // Refinement prompt mode
-  if (state === 'refining-prompt') {
-    return (
-      <Box flexDirection="column" paddingY={1}>
-        <Box marginBottom={1}>
-          <Text color="cyan" bold>✨ Refine Draft</Text>
-        </Box>
-
-        <Box marginBottom={1}>
-          <Text color="gray">Tell me how to improve this draft:</Text>
-        </Box>
-
-        <Box marginBottom={1}>
-          <TextInput
-            value={refinementInput}
-            onChange={setRefinementInput}
-            onSubmit={submitRefinement}
-            placeholder='e.g. "make it more formal", "shorter", "add urgency"'
-          />
-        </Box>
-
-        <Box flexDirection="column">
-          <Text color="cyan">Press [Enter] to submit, [Escape] to cancel</Text>
-          <Text color="gray" dimColor>Examples: "make more formal" | "shorter" | "add deadline Friday"</Text>
-        </Box>
-      </Box>
-    );
-  }
-
   // Manual edit mode
   if (state === 'manual-editing') {
     return (
@@ -523,10 +503,21 @@ const DraftReview: React.FC<DraftReviewProps> = ({
             <Text color="gray">─────────────────────────────────────────────────────────────────────</Text>
           </Box>
 
+          {/* Chat input */}
           <Box flexDirection="column" marginTop={1}>
-            <Text color="cyan">
-              [Tab] Accept  [R] Refine with AI  [E] Manual Edit  [S] Skip  [B] Back
-            </Text>
+            <Box>
+              <Text color="cyan">&gt; </Text>
+              <TextInput
+                value={refinementInput}
+                onChange={setRefinementInput}
+                onSubmit={submitRefinement}
+                placeholder="Ask AI to do anything (e.g. make it longer, add urgency, change tone)"
+              />
+            </Box>
+            <Box marginTop={1}>
+              <Text color="gray">&gt;&gt; </Text>
+              <Text color="cyan">[Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate  [^E] Manual Edit  [Esc] Clear</Text>
+            </Box>
             {(currentItem.refinementCount ?? 0) > 0 && (
               <Text color="gray">
                 (Refined {currentItem.refinementCount}x)
@@ -547,10 +538,10 @@ const DraftReview: React.FC<DraftReviewProps> = ({
 
           <Box flexDirection="column" marginTop={1}>
             <Text color="cyan">
-              [S] Skip  [B] Back
+              [Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate
             </Text>
             <Text color="gray" dimColor>
-              (Draft will be ready shortly - you can skip and come back)
+              (Draft will be ready shortly)
             </Text>
           </Box>
         </>
@@ -562,7 +553,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
 
           <Box flexDirection="column" marginTop={1}>
             <Text color="cyan">
-              [S] Skip to next email  [B] Back
+              [Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate
             </Text>
           </Box>
         </>
