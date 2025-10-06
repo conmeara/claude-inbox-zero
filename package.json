@@ -1,27 +1,38 @@
 {
-  "name": "claude-inbox",
+  "name": "claude-inbox-zero",
   "version": "1.0.0",
-  "description": "AI-powered email triage assistant in your terminal",
+  "description": "AI-powered email triage assistant - Achieve inbox zero in your terminal",
   "main": "dist/cli.js",
+  "type": "module",
   "bin": {
-    "claude-inbox": "./dist/cli.js"
+    "claude-inbox-zero": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/cli.ts",
     "start": "node dist/cli.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepare": "npm run build"
   },
   "keywords": [
     "email",
     "cli",
     "ai",
     "claude",
-    "inbox"
+    "inbox",
+    "triage",
+    "assistant"
   ],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "devDependencies": {
     "@types/mailparser": "^3.4.6",
     "@types/node": "^24.0.15",

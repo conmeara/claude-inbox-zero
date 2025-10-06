@@ -1,9 +1,18 @@
 /**
  * SessionManager - Manages one session per email for multi-turn conversations
- * Based on sample implementation but simplified for CLI use
+ *
+ * Features:
+ * - Memory-only sessions (no disk persistence)
+ * - Cost and turn tracking for limits
+ * - Session cleanup to prevent memory leaks
+ *
+ * Based on patterns from Anthropic's email-agent sample.
  */
 export class SessionManager {
     sessions = new Map();
+    constructor() {
+        // Simple, memory-only session management
+    }
     /**
      * Create a new session for an email
      */
@@ -89,7 +98,19 @@ export class SessionManager {
         };
     }
     /**
-     * Destroy a session and free memory
+     * Finalize a session after email is processed (cleanup memory)
+     * This should be called after user sends/skips an email
+     */
+    finalizeSession(emailId) {
+        const session = this.getSession(emailId);
+        if (!session)
+            return;
+        // Clear message history to free memory (keep metrics)
+        session.messageHistory = [];
+    }
+    /**
+     * Destroy a session completely and free all memory
+     * Use this when a session is no longer needed at all
      */
     destroySession(emailId) {
         const session = this.sessions.get(emailId);

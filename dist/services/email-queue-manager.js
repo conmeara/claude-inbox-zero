@@ -14,6 +14,8 @@ export class EmailQueueManager {
     completedQueue = [];
     currentItem = null;
     itemsById = new Map();
+    allItems = []; // For navigation
+    currentIndex = -1; // Current position in allItems
     constructor(emails) {
         // Initialize primary queue with all emails
         this.primaryQueue = emails.map(email => ({
@@ -27,6 +29,8 @@ export class EmailQueueManager {
         this.primaryQueue.forEach(item => {
             this.itemsById.set(item.email.id, item);
         });
+        // Store all items for navigation
+        this.allItems = [...this.primaryQueue];
     }
     /**
      * Get the next email to review
@@ -38,6 +42,8 @@ export class EmailQueueManager {
             const item = this.refinedQueue.shift();
             item.state = 'reviewing';
             this.currentItem = item;
+            // Update index
+            this.currentIndex = this.allItems.findIndex(i => i.email.id === item.email.id);
             return item;
         }
         // Priority 2: Primary queue
@@ -45,10 +51,38 @@ export class EmailQueueManager {
             const item = this.primaryQueue.shift();
             item.state = 'reviewing';
             this.currentItem = item;
+            // Update index
+            this.currentIndex = this.allItems.findIndex(i => i.email.id === item.email.id);
             return item;
         }
         // All queues empty
         return null;
+    }
+    /**
+     * Get the previous email in sequence (for navigation)
+     */
+    getPrevious() {
+        if (this.currentIndex <= 0) {
+            return null; // Already at first item
+        }
+        this.currentIndex--;
+        const item = this.allItems[this.currentIndex];
+        item.state = 'reviewing';
+        this.currentItem = item;
+        return item;
+    }
+    /**
+     * Get the next email in sequence (for navigation, different from getNext which uses queues)
+     */
+    getNextInSequence() {
+        if (this.currentIndex >= this.allItems.length - 1) {
+            return null; // Already at last item
+        }
+        this.currentIndex++;
+        const item = this.allItems[this.currentIndex];
+        item.state = 'reviewing';
+        this.currentItem = item;
+        return item;
     }
     /**
      * Get current item being reviewed

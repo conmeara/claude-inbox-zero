@@ -8,6 +8,11 @@ import { InitialGenerationQueue } from './services/initial-generation-queue.js';
 import { RefinementQueue } from './services/refinement-queue.js';
 import Dashboard from './components/Dashboard.js';
 import DraftReview from './components/DraftReview.js';
+import { DefaultLayout } from './components/layouts/DefaultLayout.js';
+import { ConfigProvider } from './contexts/ConfigContext.js';
+import { UIStateProvider } from './contexts/UIStateContext.js';
+import { SetupWizard } from './components/setup/SetupWizard.js';
+import { isFirstRun } from './utils/first-run-config.js';
 
 interface AppProps {
   resetInbox?: boolean;
@@ -15,11 +20,12 @@ interface AppProps {
   useImap?: boolean;
 }
 
-type AppState = 'loading' | 'dashboard' | 'reviewing' | 'complete' | 'error';
+type AppState = 'setup' | 'loading' | 'dashboard' | 'reviewing' | 'complete' | 'error';
 
-const App: React.FC<AppProps> = ({ resetInbox = false, debug = false, useImap = false }) => {
+const AppContent: React.FC<AppProps> = ({ resetInbox = false, debug = false, useImap = false }) => {
   const [state, setState] = useState<AppState>('loading');
   const [error, setError] = useState<string>('');
+  const [setupConfig, setSetupConfig] = useState<{ emailMode: 'mock' | 'imap'; hasApiKey: boolean } | null>(null);
   const [inboxService] = useState(() => {
     if (useImap) return new EmailService('imap');
     return new EmailService('mock');
@@ -38,7 +44,15 @@ const App: React.FC<AppProps> = ({ resetInbox = false, debug = false, useImap = 
 
   const { exit } = useApp();
 
+  // Check for first run on mount
   useEffect(() => {
+    if (isFirstRun()) {
+      setState('setup');
+    } else {
+      // Proceed with normal initialization
+      initializeApp();
+    }
+
     async function initializeApp() {
       try {
         await inboxService.loadInboxData();
@@ -57,8 +71,6 @@ const App: React.FC<AppProps> = ({ resetInbox = false, debug = false, useImap = 
         setState('error');
       }
     }
-
-    initializeApp();
   }, [inboxService, resetInbox]);
 
   // Initialize background processing when entering dashboard
@@ -151,32 +163,64 @@ const App: React.FC<AppProps> = ({ resetInbox = false, debug = false, useImap = 
 
   if (state === 'loading') {
     return (
-      <Box flexDirection="column" paddingY={1}>
-        <Text color="cyan">Welcome to Claude Inbox</Text>
-        <Text>Loading your inbox...</Text>
-      </Box>
+      <DefaultLayout>
+        <Box flexDirection="column" paddingY={1}>
+          <Text color="cyan">Welcome to Claude Inbox Zero</Text>
+          <Text>Loading your inbox...</Text>
+        </Box>
+      </DefaultLayout>
     );
+  }
+
+  const handleSetupComplete = async (config: { emailMode: 'mock' | 'imap'; hasApiKey: boolean }) => {
+    setSetupConfig(config);
+    setState('loading');
+
+    // Reinitialize the app with the configured mode
+    try {
+      await inboxService.loadInboxData();
+
+      if (resetInbox) {
+        await inboxService.resetInbox();
+      }
+
+      const unread = inboxService.getUnreadEmails();
+      setEmails(unread);
+
+      setState('dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to initialize app');
+      setState('error');
+    }
+  };
+
+  if (state === 'setup') {
+    return <SetupWizard onComplete={handleSetupComplete} />;
   }
 
   if (state === 'error') {
     return (
-      <Box flexDirection="column" paddingY={1}>
-        <Text color="red">Error: {error}</Text>
-        <Text>Press Ctrl+C to exit</Text>
-      </Box>
+      <DefaultLayout>
+        <Box flexDirection="column" paddingY={1}>
+          <Text color="red">Error: {error}</Text>
+          <Text>Press Ctrl+C to exit</Text>
+        </Box>
+      </DefaultLayout>
     );
   }
 
   if (state === 'dashboard') {
     return (
-      <Dashboard
-        inboxService={inboxService}
-        debug={debug}
-        onStartBatch={handleStartBatch}
-        batchOffset={batchOffset}
-        readyCount={readyCount}
-        processingCount={processingCount}
-      />
+      <DefaultLayout>
+        <Dashboard
+          inboxService={inboxService}
+          debug={debug}
+          onStartBatch={handleStartBatch}
+          batchOffset={batchOffset}
+          readyCount={readyCount}
+          processingCount={processingCount}
+        />
+      </DefaultLayout>
     );
   }
 
@@ -185,39 +229,63 @@ const App: React.FC<AppProps> = ({ resetInbox = false, debug = false, useImap = 
     const skippedCount = processedDrafts.filter(d => d.status === 'skipped').length;
 
     return (
-      <Box flexDirection="column" paddingY={1}>
-        <Text color="green" bold>🎉 Inbox Zero Achieved!</Text>
-        <Text>All unread emails have been processed.</Text>
-        <Box marginTop={1}>
-          <Text>✓ {acceptedCount} drafts accepted</Text>
+      <DefaultLayout>
+        <Box flexDirection="column" paddingY={1}>
+          <Text color="green" bold>🎉 Inbox Zero Achieved!</Text>
+          <Text>All unread emails have been processed.</Text>
+          <Box marginTop={1}>
+            <Text>✓ {acceptedCount} drafts accepted</Text>
+          </Box>
+          <Box>
+            <Text>✓ {skippedCount} emails skipped</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text color="cyan">Press Ctrl+C to exit</Text>
+          </Box>
         </Box>
-        <Box>
-          <Text>✓ {skippedCount} emails skipped</Text>
-        </Box>
-        <Box marginTop={1}>
-          <Text color="cyan">Press Ctrl+C to exit</Text>
-        </Box>
-      </Box>
+      </DefaultLayout>
     );
   }
 
   if (state === 'reviewing') {
     return (
-      <DraftReview
-        emails={emails}
-        inboxService={inboxService}
-        onComplete={handleReviewComplete}
-        onBack={handleBack}
-        debug={debug}
-        preInitializedAiService={aiService}
-        preInitializedQueueManager={queueManager}
-        preInitializedGenerationQueue={generationQueue}
-        preInitializedRefinementQueue={refinementQueue}
-      />
+      <DefaultLayout>
+        <DraftReview
+          emails={emails}
+          inboxService={inboxService}
+          onComplete={handleReviewComplete}
+          onBack={handleBack}
+          debug={debug}
+          preInitializedAiService={aiService}
+          preInitializedQueueManager={queueManager}
+          preInitializedGenerationQueue={generationQueue}
+          preInitializedRefinementQueue={refinementQueue}
+        />
+      </DefaultLayout>
     );
   }
 
   return null;
+};
+
+// Main App component with context providers
+const App: React.FC<AppProps> = (props) => {
+  const { debug = false, useImap = false } = props;
+
+  const config = {
+    mode: useImap ? ('imap' as const) : ('mock' as const),
+    modelName: 'claude-sonnet-4',
+    debug,
+    resetInbox: props.resetInbox || false,
+  };
+
+  return (
+    <ConfigProvider config={config}>
+      <UIStateProvider>
+        <AppContent {...props} />
+      </UIStateProvider>
+    </ConfigProvider>
+  );
 };
 
 export default App;

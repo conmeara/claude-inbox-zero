@@ -1,6 +1,13 @@
+import { MessageQueue } from './message-queue.js';
 /**
  * RefinementQueue - Background processor for email draft refinements
- * Handles concurrent processing with configurable max jobs
+ *
+ * Features:
+ * - Concurrent processing across different emails (up to maxConcurrent)
+ * - Serial processing per email using MessageQueue (prevents race conditions)
+ * - Session-aware refinements with context retention
+ *
+ * Based on patterns from Anthropic's email-agent sample.
  */
 export class RefinementQueue {
     sessionManager;
@@ -10,13 +17,56 @@ export class RefinementQueue {
     maxConcurrent;
     onCompleteCallbacks = [];
     onFailedCallbacks = [];
+    // MessageQueue per email to serialize refinements for same email
+    emailQueues = new Map();
     constructor(sessionManager, agentClient, maxConcurrent = 3) {
         this.sessionManager = sessionManager;
         this.agentClient = agentClient;
         this.maxConcurrent = maxConcurrent;
     }
     /**
+     * Get or create a MessageQueue for an email
+     */
+    getOrCreateQueue(emailId) {
+        let queue = this.emailQueues.get(emailId);
+        if (!queue) {
+            queue = new MessageQueue();
+            this.emailQueues.set(emailId, queue);
+            // Start a worker for this email (processes jobs serially)
+            this.startEmailWorker(emailId, queue);
+        }
+        return queue;
+    }
+    /**
+     * Worker loop for a specific email
+     * Processes refinements serially to prevent race conditions
+     */
+    async startEmailWorker(emailId, queue) {
+        while (true) {
+            const next = await queue.next();
+            if (next.done)
+                break;
+            const job = next.value;
+            // Wait until we have an available processing slot
+            while (this.processing.size >= this.maxConcurrent) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            // Mark as processing
+            this.processing.add(emailId);
+            try {
+                await this.processJob(job);
+            }
+            finally {
+                this.processing.delete(emailId);
+            }
+        }
+        // Cleanup queue when worker exits
+        this.emailQueues.delete(emailId);
+    }
+    /**
      * Enqueue a refinement job
+     * Jobs for the same email are processed serially (prevents race conditions)
+     * Jobs for different emails can process concurrently (up to maxConcurrent)
      */
     async enqueue(emailId, currentDraft, feedback, email) {
         const job = {
@@ -27,31 +77,10 @@ export class RefinementQueue {
             status: 'queued'
         };
         this.jobs.set(emailId, job);
-        // Start processing if we have available slots
-        this.processNext();
-    }
-    /**
-     * Process next available job if we're under max concurrent
-     */
-    processNext() {
-        if (this.processing.size >= this.maxConcurrent) {
-            return; // At capacity
-        }
-        // Find next queued job
-        const job = Array.from(this.jobs.values())
-            .find(j => j.status === 'queued');
-        if (!job)
-            return; // No jobs waiting
-        // Mark as processing
-        job.status = 'processing';
-        job.startTime = Date.now();
-        this.processing.add(job.emailId);
-        // Process in background (don't await!)
-        this.processJob(job)
-            .finally(() => {
-            this.processing.delete(job.emailId);
-            this.processNext(); // Try to start next job
-        });
+        // Get or create queue for this email
+        const queue = this.getOrCreateQueue(emailId);
+        // Push to the queue (will be processed serially for this email)
+        await queue.push(job);
     }
     /**
      * Process a single refinement job
@@ -221,11 +250,16 @@ Please provide an improved version of the draft that addresses the user's feedba
         return total;
     }
     /**
-     * Cleanup the queue
+     * Cleanup the queue and close all message queues
      */
     cleanup() {
+        // Close all message queues to stop workers
+        for (const queue of this.emailQueues.values()) {
+            queue.close();
+        }
         this.jobs.clear();
         this.processing.clear();
+        this.emailQueues.clear();
         this.onCompleteCallbacks = [];
         this.onFailedCallbacks = [];
     }

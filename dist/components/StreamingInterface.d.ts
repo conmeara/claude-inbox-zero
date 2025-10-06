@@ -1,8 +1,8 @@
 import React from 'react';
-import { MockInboxService } from '../services/mockInbox.js';
+import { EmailService } from '../services/email-service.js';
 import { EmailDraft } from '../types/email.js';
 interface StreamingInterfaceProps {
-    inboxService: MockInboxService;
+    inboxService: EmailService;
     debug?: boolean;
     onComplete: (drafts: EmailDraft[]) => void;
     onBack: () => void;

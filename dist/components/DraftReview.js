@@ -187,37 +187,32 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
         if (state === 'reviewing') {
             if (!currentItem)
                 return;
-            if (currentItem.draft) {
-                // Email with draft
-                if (key.tab) {
-                    handleAccept();
-                }
-                else if (input.toLowerCase() === 'r') {
-                    startRefinementMode();
-                }
-                else if (input.toLowerCase() === 'e') {
+            // Tab - Always accept (mark read and move forward)
+            if (key.tab && !key.shift) {
+                handleAccept();
+            }
+            // Shift-Tab - Skip (mark unread and move forward)
+            else if (key.tab && key.shift) {
+                handleSkip();
+            }
+            // Cmd+Left Arrow - Navigate backwards
+            else if (key.leftArrow && key.meta) {
+                handleNavigateBackward();
+            }
+            // Cmd+Right Arrow - Navigate forwards
+            else if (key.rightArrow && key.meta) {
+                handleNavigateForward();
+            }
+            // Control-E - Enter manual edit mode
+            else if (key.ctrl && input === 'e') {
+                if (currentItem.draft) {
                     startManualEditMode();
                 }
-                else if (input.toLowerCase() === 's') {
-                    handleSkip();
-                }
-                else if (input.toLowerCase() === 'b') {
-                    onBack();
-                }
             }
-            else {
-                // Informational email (no draft)
-                if (input.toLowerCase() === 's' || key.return) {
-                    handleSkip();
-                }
-                else if (input.toLowerCase() === 'b') {
-                    onBack();
-                }
+            // Escape - Clear chat input
+            else if (key.escape) {
+                setRefinementInput('');
             }
-        }
-        else if (state === 'refining-prompt' && key.escape) {
-            setState('reviewing');
-            setRefinementInput('');
         }
         else if (state === 'manual-editing' && key.escape) {
             setState('reviewing');
@@ -228,23 +223,32 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
         if (!currentItem)
             return;
         queueManager.markAccepted(currentItem.email.id);
-        aiService.getSessionManager().destroySession(currentItem.email.id);
+        // Finalize session (cleanup memory, keep metrics)
+        aiService.getSessionManager().finalizeSession(currentItem.email.id);
         loadNextEmail();
     };
     const handleSkip = () => {
         if (!currentItem)
             return;
         queueManager.markSkipped(currentItem.email.id);
-        aiService.getSessionManager().destroySession(currentItem.email.id);
+        // Finalize session (cleanup memory, keep metrics)
+        aiService.getSessionManager().finalizeSession(currentItem.email.id);
         loadNextEmail();
     };
-    const startRefinementMode = () => {
-        setState('refining-prompt');
-        setRefinementInput('');
+    const handleNavigateBackward = () => {
+        const previous = queueManager.getPrevious();
+        if (previous) {
+            setCurrentItem(previous);
+        }
+    };
+    const handleNavigateForward = () => {
+        const next = queueManager.getNextInSequence();
+        if (next) {
+            setCurrentItem(next);
+        }
     };
     const submitRefinement = async () => {
         if (!currentItem || !currentItem.draft || !refinementInput.trim()) {
-            setState('reviewing');
             return;
         }
         const feedback = refinementInput.trim();
@@ -252,7 +256,6 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
         const turnCount = aiService.getSessionManager().getTurnCount(currentItem.email.id);
         if (turnCount >= 10) {
             setError('Maximum refinement limit reached (10 rounds). Please use manual edit instead.');
-            setState('reviewing');
             setRefinementInput('');
             return;
         }
@@ -338,19 +341,6 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
             React.createElement(Text, { color: "gray" }, "Loading next email...")));
     }
     const queueStatus = queueManager.getStatus();
-    // Refinement prompt mode
-    if (state === 'refining-prompt') {
-        return (React.createElement(Box, { flexDirection: "column", paddingY: 1 },
-            React.createElement(Box, { marginBottom: 1 },
-                React.createElement(Text, { color: "cyan", bold: true }, "\u2728 Refine Draft")),
-            React.createElement(Box, { marginBottom: 1 },
-                React.createElement(Text, { color: "gray" }, "Tell me how to improve this draft:")),
-            React.createElement(Box, { marginBottom: 1 },
-                React.createElement(TextInput, { value: refinementInput, onChange: setRefinementInput, onSubmit: submitRefinement, placeholder: 'e.g. "make it more formal", "shorter", "add urgency"' })),
-            React.createElement(Box, { flexDirection: "column" },
-                React.createElement(Text, { color: "cyan" }, "Press [Enter] to submit, [Escape] to cancel"),
-                React.createElement(Text, { color: "gray", dimColor: true }, "Examples: \"make more formal\" | \"shorter\" | \"add deadline Friday\""))));
-    }
     // Manual edit mode
     if (state === 'manual-editing') {
         return (React.createElement(Box, { flexDirection: "column", paddingY: 1 },
@@ -400,7 +390,12 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
                     React.createElement(Text, { color: "white" }, currentItem.draft.draftContent)),
                 React.createElement(Text, { color: "gray" }, "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")),
             React.createElement(Box, { flexDirection: "column", marginTop: 1 },
-                React.createElement(Text, { color: "cyan" }, "[Tab] Accept  [R] Refine with AI  [E] Manual Edit  [S] Skip  [B] Back"),
+                React.createElement(Box, null,
+                    React.createElement(Text, { color: "cyan" }, "> "),
+                    React.createElement(TextInput, { value: refinementInput, onChange: setRefinementInput, onSubmit: submitRefinement, placeholder: "Ask AI to do anything (e.g. make it longer, add urgency, change tone)" })),
+                React.createElement(Box, { marginTop: 1 },
+                    React.createElement(Text, { color: "gray" }, ">> "),
+                    React.createElement(Text, { color: "cyan" }, "[Tab] Accept  [\u21E7Tab] Skip  [\u2318\u2190\u2192] Navigate  [^E] Manual Edit  [Esc] Clear")),
                 (currentItem.refinementCount ?? 0) > 0 && (React.createElement(Text, { color: "gray" },
                     "(Refined ",
                     currentItem.refinementCount,
@@ -412,12 +407,12 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
                         React.createElement(Spinner, { type: "dots" }),
                         " Generating draft reply..."))),
             React.createElement(Box, { flexDirection: "column", marginTop: 1 },
-                React.createElement(Text, { color: "cyan" }, "[S] Skip  [B] Back"),
-                React.createElement(Text, { color: "gray", dimColor: true }, "(Draft will be ready shortly - you can skip and come back)")))) : (React.createElement(React.Fragment, null,
+                React.createElement(Text, { color: "cyan" }, "[Tab] Accept  [\u21E7Tab] Skip  [\u2318\u2190\u2192] Navigate"),
+                React.createElement(Text, { color: "gray", dimColor: true }, "(Draft will be ready shortly)")))) : (React.createElement(React.Fragment, null,
             React.createElement(Box, { flexDirection: "column", marginBottom: 1 },
                 React.createElement(Text, { color: "blue" }, "\u2139\uFE0F  This email is informational only - no response needed.")),
             React.createElement(Box, { flexDirection: "column", marginTop: 1 },
-                React.createElement(Text, { color: "cyan" }, "[S] Skip to next email  [B] Back")))),
+                React.createElement(Text, { color: "cyan" }, "[Tab] Accept  [\u21E7Tab] Skip  [\u2318\u2190\u2192] Navigate")))),
         React.createElement(Box, { marginTop: 1, justifyContent: "space-between" },
             React.createElement(Text, { color: "gray" },
                 "Progress: ",

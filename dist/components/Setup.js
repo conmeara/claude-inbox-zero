@@ -3,14 +3,14 @@ import { Box, Text, useInput, useApp } from 'ink';
 import TextInput from 'ink-text-input';
 import { ConfigService } from '../services/config.js';
 import { AIService } from '../services/ai.js';
-import { MockInboxService } from '../services/mockInbox.js';
+import { EmailService } from '../services/email-service.js';
 const Setup = ({ onComplete }) => {
     const [state, setState] = useState('welcome');
     const [apiKey, setApiKey] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
     const [showInput, setShowInput] = useState(false);
     const [configService] = useState(() => new ConfigService());
-    const [inboxService] = useState(() => new MockInboxService());
+    const [inboxService] = useState(() => new EmailService('mock'));
     const [aiService] = useState(() => new AIService(inboxService));
     const { exit } = useApp();
     useEffect(() => {

@@ -1,7 +1,7 @@
 import { Email, EmailSummary, EmailDraft } from '../types/email.js';
 import { AgentClient } from './agent-client.js';
 import { SessionManager } from './session-manager.js';
-import { MockInboxService } from './mockInbox.js';
+import { EmailService } from './email-service.js';
 export declare class AIService {
     private readonly maxRetries;
     private readonly retryDelay;
@@ -11,7 +11,7 @@ export declare class AIService {
     private sessionManager;
     private systemPrompt;
     private onProgress?;
-    constructor(inboxService: MockInboxService);
+    constructor(inboxService: EmailService);
     initialize(): Promise<void>;
     getSessionManager(): SessionManager;
     getAgentClient(): AgentClient;

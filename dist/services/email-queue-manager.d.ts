@@ -15,12 +15,22 @@ export declare class EmailQueueManager {
     private completedQueue;
     private currentItem;
     private itemsById;
+    private allItems;
+    private currentIndex;
     constructor(emails: Email[]);
     /**
      * Get the next email to review
      * Priority: refined queue > primary queue
      */
     getNext(): EmailQueueItem | null;
+    /**
+     * Get the previous email in sequence (for navigation)
+     */
+    getPrevious(): EmailQueueItem | null;
+    /**
+     * Get the next email in sequence (for navigation, different from getNext which uses queues)
+     */
+    getNextInSequence(): EmailQueueItem | null;
     /**
      * Get current item being reviewed
      */

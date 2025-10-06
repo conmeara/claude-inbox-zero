@@ -1,7 +1,7 @@
 import React from 'react';
-import { MockInboxService } from '../services/mockInbox.js';
+import { EmailService } from '../services/email-service.js';
 interface DashboardProps {
-    inboxService: MockInboxService;
+    inboxService: EmailService;
     debug?: boolean;
     onStartBatch: () => void;
     batchOffset: number;

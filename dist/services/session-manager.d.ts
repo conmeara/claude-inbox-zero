@@ -9,10 +9,17 @@ export interface EmailSession {
 }
 /**
  * SessionManager - Manages one session per email for multi-turn conversations
- * Based on sample implementation but simplified for CLI use
+ *
+ * Features:
+ * - Memory-only sessions (no disk persistence)
+ * - Cost and turn tracking for limits
+ * - Session cleanup to prevent memory leaks
+ *
+ * Based on patterns from Anthropic's email-agent sample.
  */
 export declare class SessionManager {
     private sessions;
+    constructor();
     /**
      * Create a new session for an email
      */
@@ -50,7 +57,13 @@ export declare class SessionManager {
         turns: number;
     } | null;
     /**
-     * Destroy a session and free memory
+     * Finalize a session after email is processed (cleanup memory)
+     * This should be called after user sends/skips an email
+     */
+    finalizeSession(emailId: string): void;
+    /**
+     * Destroy a session completely and free all memory
+     * Use this when a session is no longer needed at all
      */
     destroySession(emailId: string): void;
     /**

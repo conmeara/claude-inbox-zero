@@ -1,16 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
-import { MockInboxService } from './services/mockInbox.js';
+import { EmailService } from './services/email-service.js';
 import { AIService } from './services/ai.js';
 import { EmailQueueManager } from './services/email-queue-manager.js';
 import { InitialGenerationQueue } from './services/initial-generation-queue.js';
 import { RefinementQueue } from './services/refinement-queue.js';
 import Dashboard from './components/Dashboard.js';
 import DraftReview from './components/DraftReview.js';
-const App = ({ resetInbox = false, debug = false }) => {
+import { DefaultLayout } from './components/layouts/DefaultLayout.js';
+import { ConfigProvider } from './contexts/ConfigContext.js';
+import { UIStateProvider } from './contexts/UIStateContext.js';
+import { SetupWizard } from './components/setup/SetupWizard.js';
+import { isFirstRun } from './utils/first-run-config.js';
+const AppContent = ({ resetInbox = false, debug = false, useImap = false }) => {
     const [state, setState] = useState('loading');
     const [error, setError] = useState('');
-    const [inboxService] = useState(() => new MockInboxService());
+    const [setupConfig, setSetupConfig] = useState(null);
+    const [inboxService] = useState(() => {
+        if (useImap)
+            return new EmailService('imap');
+        return new EmailService('mock');
+    });
     const [emails, setEmails] = useState([]);
     const [processedDrafts, setProcessedDrafts] = useState([]);
     const [batchOffset, setBatchOffset] = useState(0);
@@ -22,7 +32,15 @@ const App = ({ resetInbox = false, debug = false }) => {
     const [generationQueue, setGenerationQueue] = useState(null);
     const [refinementQueue, setRefinementQueue] = useState(null);
     const { exit } = useApp();
+    // Check for first run on mount
     useEffect(() => {
+        if (isFirstRun()) {
+            setState('setup');
+        }
+        else {
+            // Proceed with normal initialization
+            initializeApp();
+        }
         async function initializeApp() {
             try {
                 await inboxService.loadInboxData();
@@ -39,7 +57,6 @@ const App = ({ resetInbox = false, debug = false }) => {
                 setState('error');
             }
         }
-        initializeApp();
     }, [inboxService, resetInbox]);
     // Initialize background processing when entering dashboard
     useEffect(() => {
@@ -117,43 +134,82 @@ const App = ({ resetInbox = false, debug = false }) => {
         setState('dashboard');
     };
     if (state === 'loading') {
-        return (React.createElement(Box, { flexDirection: "column", paddingY: 1 },
-            React.createElement(Text, { color: "cyan" }, "Welcome to Claude Inbox"),
-            React.createElement(Text, null, "Loading your inbox...")));
+        return (React.createElement(DefaultLayout, null,
+            React.createElement(Box, { flexDirection: "column", paddingY: 1 },
+                React.createElement(Text, { color: "cyan" }, "Welcome to Claude Inbox Zero"),
+                React.createElement(Text, null, "Loading your inbox..."))));
+    }
+    const handleSetupComplete = async (config) => {
+        setSetupConfig(config);
+        setState('loading');
+        // Reinitialize the app with the configured mode
+        try {
+            await inboxService.loadInboxData();
+            if (resetInbox) {
+                await inboxService.resetInbox();
+            }
+            const unread = inboxService.getUnreadEmails();
+            setEmails(unread);
+            setState('dashboard');
+        }
+        catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to initialize app');
+            setState('error');
+        }
+    };
+    if (state === 'setup') {
+        return React.createElement(SetupWizard, { onComplete: handleSetupComplete });
     }
     if (state === 'error') {
-        return (React.createElement(Box, { flexDirection: "column", paddingY: 1 },
-            React.createElement(Text, { color: "red" },
-                "Error: ",
-                error),
-            React.createElement(Text, null, "Press Ctrl+C to exit")));
+        return (React.createElement(DefaultLayout, null,
+            React.createElement(Box, { flexDirection: "column", paddingY: 1 },
+                React.createElement(Text, { color: "red" },
+                    "Error: ",
+                    error),
+                React.createElement(Text, null, "Press Ctrl+C to exit"))));
     }
     if (state === 'dashboard') {
-        return (React.createElement(Dashboard, { inboxService: inboxService, debug: debug, onStartBatch: handleStartBatch, batchOffset: batchOffset, readyCount: readyCount, processingCount: processingCount }));
+        return (React.createElement(DefaultLayout, null,
+            React.createElement(Dashboard, { inboxService: inboxService, debug: debug, onStartBatch: handleStartBatch, batchOffset: batchOffset, readyCount: readyCount, processingCount: processingCount })));
     }
     if (state === 'complete') {
         const acceptedCount = processedDrafts.filter(d => d.status === 'accepted').length;
         const skippedCount = processedDrafts.filter(d => d.status === 'skipped').length;
-        return (React.createElement(Box, { flexDirection: "column", paddingY: 1 },
-            React.createElement(Text, { color: "green", bold: true }, "\uD83C\uDF89 Inbox Zero Achieved!"),
-            React.createElement(Text, null, "All unread emails have been processed."),
-            React.createElement(Box, { marginTop: 1 },
-                React.createElement(Text, null,
-                    "\u2713 ",
-                    acceptedCount,
-                    " drafts accepted")),
-            React.createElement(Box, null,
-                React.createElement(Text, null,
-                    "\u2713 ",
-                    skippedCount,
-                    " emails skipped")),
-            React.createElement(Box, { marginTop: 1 },
-                React.createElement(Text, { color: "cyan" }, "Press Ctrl+C to exit"))));
+        return (React.createElement(DefaultLayout, null,
+            React.createElement(Box, { flexDirection: "column", paddingY: 1 },
+                React.createElement(Text, { color: "green", bold: true }, "\uD83C\uDF89 Inbox Zero Achieved!"),
+                React.createElement(Text, null, "All unread emails have been processed."),
+                React.createElement(Box, { marginTop: 1 },
+                    React.createElement(Text, null,
+                        "\u2713 ",
+                        acceptedCount,
+                        " drafts accepted")),
+                React.createElement(Box, null,
+                    React.createElement(Text, null,
+                        "\u2713 ",
+                        skippedCount,
+                        " emails skipped")),
+                React.createElement(Box, { marginTop: 1 },
+                    React.createElement(Text, { color: "cyan" }, "Press Ctrl+C to exit")))));
     }
     if (state === 'reviewing') {
-        return (React.createElement(DraftReview, { emails: emails, inboxService: inboxService, onComplete: handleReviewComplete, onBack: handleBack, debug: debug, preInitializedAiService: aiService, preInitializedQueueManager: queueManager, preInitializedGenerationQueue: generationQueue, preInitializedRefinementQueue: refinementQueue }));
+        return (React.createElement(DefaultLayout, null,
+            React.createElement(DraftReview, { emails: emails, inboxService: inboxService, onComplete: handleReviewComplete, onBack: handleBack, debug: debug, preInitializedAiService: aiService, preInitializedQueueManager: queueManager, preInitializedGenerationQueue: generationQueue, preInitializedRefinementQueue: refinementQueue })));
     }
     return null;
+};
+// Main App component with context providers
+const App = (props) => {
+    const { debug = false, useImap = false } = props;
+    const config = {
+        mode: useImap ? 'imap' : 'mock',
+        modelName: 'claude-sonnet-4',
+        debug,
+        resetInbox: props.resetInbox || false,
+    };
+    return (React.createElement(ConfigProvider, { config: config },
+        React.createElement(UIStateProvider, null,
+            React.createElement(AppContent, { ...props }))));
 };
 export default App;
 //# sourceMappingURL=app.js.map

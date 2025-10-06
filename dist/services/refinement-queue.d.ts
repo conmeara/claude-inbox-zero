@@ -19,7 +19,13 @@ type RefinementCompleteCallback = (emailId: string, result: string, job: Refinem
 type RefinementFailedCallback = (emailId: string, error: Error) => void;
 /**
  * RefinementQueue - Background processor for email draft refinements
- * Handles concurrent processing with configurable max jobs
+ *
+ * Features:
+ * - Concurrent processing across different emails (up to maxConcurrent)
+ * - Serial processing per email using MessageQueue (prevents race conditions)
+ * - Session-aware refinements with context retention
+ *
+ * Based on patterns from Anthropic's email-agent sample.
  */
 export declare class RefinementQueue {
     private sessionManager;
@@ -29,15 +35,23 @@ export declare class RefinementQueue {
     private maxConcurrent;
     private onCompleteCallbacks;
     private onFailedCallbacks;
+    private emailQueues;
     constructor(sessionManager: SessionManager, agentClient: AgentClient, maxConcurrent?: number);
     /**
+     * Get or create a MessageQueue for an email
+     */
+    private getOrCreateQueue;
+    /**
+     * Worker loop for a specific email
+     * Processes refinements serially to prevent race conditions
+     */
+    private startEmailWorker;
+    /**
      * Enqueue a refinement job
+     * Jobs for the same email are processed serially (prevents race conditions)
+     * Jobs for different emails can process concurrently (up to maxConcurrent)
      */
     enqueue(emailId: string, currentDraft: string, feedback: string, email: Email): Promise<void>;
-    /**
-     * Process next available job if we're under max concurrent
-     */
-    private processNext;
     /**
      * Process a single refinement job
      */
@@ -91,7 +105,7 @@ export declare class RefinementQueue {
      */
     getTotalCost(): number;
     /**
-     * Cleanup the queue
+     * Cleanup the queue and close all message queues
      */
     cleanup(): void;
 }
