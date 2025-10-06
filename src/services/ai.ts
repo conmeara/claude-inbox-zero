@@ -490,7 +490,7 @@ Provide an improved draft that addresses the feedback while maintaining professi
   ): Promise<string> {
     try {
       // Get or create session for this email
-      const session = await this.sessionManager.getOrCreateSession(emailId);
+      const session = this.sessionManager.getOrCreateSession(emailId);
 
       // Increment turn count
       this.sessionManager.incrementTurn(emailId);
@@ -511,7 +511,7 @@ Provide an improved draft that addresses the feedback while maintaining professi
 
       for await (const message of this.agentClient.queryStream(prompt, options)) {
         // Update session
-        await this.sessionManager.updateSession(emailId, message);
+        this.sessionManager.updateSession(emailId, message);
 
         // Progress updates
         if (onProgress && message.type === 'system' && message.subtype === 'init') {

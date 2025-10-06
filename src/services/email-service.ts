@@ -5,21 +5,23 @@ import * as path from 'path';
 import * as os from 'os';
 
 /**
- * Unified EmailService - Replaces MockInboxService and will integrate with Gmail
- * Uses SQLite as the unified backend for both mock and real email data
+ * Unified EmailService - Works with mock or IMAP
+ * Uses SQLite as the unified backend for all email data
+ *
+ * Based on patterns from Anthropic's email-agent sample.
  */
 export class EmailService {
   private db: EmailDatabase;
-  private mode: 'mock' | 'gmail';
+  private mode: 'mock' | 'imap';
   private isInitialized: boolean = false;
 
-  constructor(mode: 'mock' | 'gmail' = 'mock') {
+  constructor(mode: 'mock' | 'imap' = 'mock') {
     this.mode = mode;
 
-    // Use different database files for mock vs gmail mode
+    // Use different database files for mock vs real email
     const dbPath = mode === 'mock'
       ? path.join(os.homedir(), '.claude-inbox', 'mock-emails.db')
-      : path.join(os.homedir(), '.claude-inbox', 'gmail-emails.db');
+      : path.join(os.homedir(), '.claude-inbox', 'emails.db');
 
     this.db = new EmailDatabase(dbPath);
   }
@@ -27,7 +29,7 @@ export class EmailService {
   /**
    * Initialize the email service
    * For mock mode: seeds database from JSON if empty
-   * For gmail mode: will sync from Gmail API
+   * For IMAP mode: uses already-synced data from database
    */
   async loadInboxData(): Promise<void> {
     if (this.isInitialized) return;
@@ -40,8 +42,12 @@ export class EmailService {
         await seedMockData(this.db);
       }
     } else {
-      // Gmail mode - will sync in future implementation
-      console.log('Gmail mode - sync not yet implemented');
+      // IMAP mode - database should be synced via 'claude-inbox sync'
+      const stats = this.db.getStatistics();
+      if (stats.total_emails === 0) {
+        console.log('\n⚠️  No emails found in database.');
+        console.log('Run "claude-inbox sync" to sync your emails first.\n');
+      }
     }
 
     this.isInitialized = true;

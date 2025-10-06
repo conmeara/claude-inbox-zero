@@ -1,6 +1,7 @@
 import { Email } from '../types/email.js';
 import { SessionManager } from './session-manager.js';
 import { AgentClient } from './agent-client.js';
+import { MessageQueue } from './message-queue.js';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 
 export type RefinementJobStatus = 'queued' | 'processing' | 'complete' | 'failed';
@@ -24,7 +25,13 @@ type RefinementFailedCallback = (emailId: string, error: Error) => void;
 
 /**
  * RefinementQueue - Background processor for email draft refinements
- * Handles concurrent processing with configurable max jobs
+ *
+ * Features:
+ * - Concurrent processing across different emails (up to maxConcurrent)
+ * - Serial processing per email using MessageQueue (prevents race conditions)
+ * - Session-aware refinements with context retention
+ *
+ * Based on patterns from Anthropic's email-agent sample.
  */
 export class RefinementQueue {
   private jobs: Map<string, RefinementJob> = new Map();
@@ -32,6 +39,9 @@ export class RefinementQueue {
   private maxConcurrent: number;
   private onCompleteCallbacks: RefinementCompleteCallback[] = [];
   private onFailedCallbacks: RefinementFailedCallback[] = [];
+
+  // MessageQueue per email to serialize refinements for same email
+  private emailQueues: Map<string, MessageQueue<RefinementJob>> = new Map();
 
   constructor(
     private sessionManager: SessionManager,
@@ -42,7 +52,54 @@ export class RefinementQueue {
   }
 
   /**
+   * Get or create a MessageQueue for an email
+   */
+  private getOrCreateQueue(emailId: string): MessageQueue<RefinementJob> {
+    let queue = this.emailQueues.get(emailId);
+    if (!queue) {
+      queue = new MessageQueue<RefinementJob>();
+      this.emailQueues.set(emailId, queue);
+
+      // Start a worker for this email (processes jobs serially)
+      this.startEmailWorker(emailId, queue);
+    }
+    return queue;
+  }
+
+  /**
+   * Worker loop for a specific email
+   * Processes refinements serially to prevent race conditions
+   */
+  private async startEmailWorker(emailId: string, queue: MessageQueue<RefinementJob>): Promise<void> {
+    while (true) {
+      const next = await queue.next();
+      if (next.done) break;
+
+      const job = next.value;
+
+      // Wait until we have an available processing slot
+      while (this.processing.size >= this.maxConcurrent) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Mark as processing
+      this.processing.add(emailId);
+
+      try {
+        await this.processJob(job);
+      } finally {
+        this.processing.delete(emailId);
+      }
+    }
+
+    // Cleanup queue when worker exits
+    this.emailQueues.delete(emailId);
+  }
+
+  /**
    * Enqueue a refinement job
+   * Jobs for the same email are processed serially (prevents race conditions)
+   * Jobs for different emails can process concurrently (up to maxConcurrent)
    */
   async enqueue(
     emailId: string,
@@ -60,36 +117,13 @@ export class RefinementQueue {
 
     this.jobs.set(emailId, job);
 
-    // Start processing if we have available slots
-    this.processNext();
+    // Get or create queue for this email
+    const queue = this.getOrCreateQueue(emailId);
+
+    // Push to the queue (will be processed serially for this email)
+    await queue.push(job);
   }
 
-  /**
-   * Process next available job if we're under max concurrent
-   */
-  private processNext(): void {
-    if (this.processing.size >= this.maxConcurrent) {
-      return; // At capacity
-    }
-
-    // Find next queued job
-    const job = Array.from(this.jobs.values())
-      .find(j => j.status === 'queued');
-
-    if (!job) return; // No jobs waiting
-
-    // Mark as processing
-    job.status = 'processing';
-    job.startTime = Date.now();
-    this.processing.add(job.emailId);
-
-    // Process in background (don't await!)
-    this.processJob(job)
-      .finally(() => {
-        this.processing.delete(job.emailId);
-        this.processNext(); // Try to start next job
-      });
-  }
 
   /**
    * Process a single refinement job
@@ -97,7 +131,7 @@ export class RefinementQueue {
   private async processJob(job: RefinementJob): Promise<void> {
     try {
       // Get or create session for this email
-      const session = await this.sessionManager.getOrCreateSession(job.emailId);
+      const session = this.sessionManager.getOrCreateSession(job.emailId);
 
       // Increment turn count
       this.sessionManager.incrementTurn(job.emailId);
@@ -120,7 +154,7 @@ export class RefinementQueue {
       // Stream the refinement
       for await (const message of this.agentClient.queryStream(prompt, options)) {
         // Update session with message
-        await this.sessionManager.updateSession(job.emailId, message);
+        this.sessionManager.updateSession(job.emailId, message);
 
         // Extract result
         if (message.type === 'result' && message.subtype === 'success') {
@@ -292,11 +326,17 @@ Please provide an improved version of the draft that addresses the user's feedba
   }
 
   /**
-   * Cleanup the queue
+   * Cleanup the queue and close all message queues
    */
   cleanup(): void {
+    // Close all message queues to stop workers
+    for (const queue of this.emailQueues.values()) {
+      queue.close();
+    }
+
     this.jobs.clear();
     this.processing.clear();
+    this.emailQueues.clear();
     this.onCompleteCallbacks = [];
     this.onFailedCallbacks = [];
   }

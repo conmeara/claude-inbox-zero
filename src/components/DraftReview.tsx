@@ -262,14 +262,20 @@ const DraftReview: React.FC<DraftReviewProps> = ({
   const handleAccept = () => {
     if (!currentItem) return;
     queueManager.markAccepted(currentItem.email.id);
-    aiService.getSessionManager().destroySession(currentItem.email.id);
+
+    // Finalize session (cleanup memory, keep metrics)
+    aiService.getSessionManager().finalizeSession(currentItem.email.id);
+
     loadNextEmail();
   };
 
   const handleSkip = () => {
     if (!currentItem) return;
     queueManager.markSkipped(currentItem.email.id);
-    aiService.getSessionManager().destroySession(currentItem.email.id);
+
+    // Finalize session (cleanup memory, keep metrics)
+    aiService.getSessionManager().finalizeSession(currentItem.email.id);
+
     loadNextEmail();
   };
 

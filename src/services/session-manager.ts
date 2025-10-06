@@ -1,6 +1,5 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { Email } from '../types/email.js';
-import { SessionPersistence } from './session-persistence.js';
 
 export interface EmailSession {
   sessionId: string | null;
@@ -13,14 +12,19 @@ export interface EmailSession {
 
 /**
  * SessionManager - Manages one session per email for multi-turn conversations
- * Now with disk persistence for session recovery
+ *
+ * Features:
+ * - Memory-only sessions (no disk persistence)
+ * - Cost and turn tracking for limits
+ * - Session cleanup to prevent memory leaks
+ *
+ * Based on patterns from Anthropic's email-agent sample.
  */
 export class SessionManager {
   private sessions: Map<string, EmailSession> = new Map();
-  private persistence: SessionPersistence;
 
   constructor() {
-    this.persistence = new SessionPersistence();
+    // Simple, memory-only session management
   }
 
   /**
@@ -48,32 +52,22 @@ export class SessionManager {
   }
 
   /**
-   * Get or create a session (tries to load from disk first)
+   * Get or create a session
    */
-  async getOrCreateSession(emailId: string): Promise<EmailSession> {
+  getOrCreateSession(emailId: string): EmailSession {
     let session = this.getSession(emailId);
 
     if (!session) {
-      // Try to load from disk
-      const loadedSession = await this.persistence.loadSession(emailId);
-
-      if (loadedSession) {
-        // Restore from disk
-        this.sessions.set(emailId, loadedSession);
-        session = loadedSession;
-      } else {
-        // Create new
-        session = this.createSession(emailId);
-      }
+      session = this.createSession(emailId);
     }
 
     return session;
   }
 
   /**
-   * Update session with SDK message (and persist to disk)
+   * Update session with SDK message
    */
-  async updateSession(emailId: string, message: SDKMessage): Promise<void> {
+  updateSession(emailId: string, message: SDKMessage): void {
     const session = this.getSession(emailId);
     if (!session) return;
 
@@ -88,9 +82,6 @@ export class SessionManager {
     if (message.type === 'result' && message.subtype === 'success') {
       session.totalCost += message.total_cost_usd || 0;
       session.totalDuration += message.duration_ms || 0;
-
-      // Persist session metrics after each completion
-      await this.persistence.saveSession(emailId, session);
     }
   }
 
@@ -134,14 +125,26 @@ export class SessionManager {
   }
 
   /**
-   * Destroy a session and free memory (also removes from disk)
+   * Finalize a session after email is processed (cleanup memory)
+   * This should be called after user sends/skips an email
    */
-  async destroySession(emailId: string): Promise<void> {
+  finalizeSession(emailId: string): void {
+    const session = this.getSession(emailId);
+    if (!session) return;
+
+    // Clear message history to free memory (keep metrics)
+    session.messageHistory = [];
+  }
+
+  /**
+   * Destroy a session completely and free all memory
+   * Use this when a session is no longer needed at all
+   */
+  destroySession(emailId: string): void {
     const session = this.sessions.get(emailId);
     if (session) {
       session.messageHistory = [];
       this.sessions.delete(emailId);
-      await this.persistence.deleteSession(emailId);
     }
   }
 
@@ -164,19 +167,12 @@ export class SessionManager {
   }
 
   /**
-   * Cleanup all sessions (keeps disk persistence)
+   * Cleanup all sessions
    */
   cleanup(): void {
     for (const session of this.sessions.values()) {
       session.messageHistory = [];
     }
     this.sessions.clear();
-  }
-
-  /**
-   * Get persistence service for advanced operations
-   */
-  getPersistence(): SessionPersistence {
-    return this.persistence;
   }
 }

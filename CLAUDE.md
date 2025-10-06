@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Claude Inbox is an AI-powered email triage assistant that runs in the terminal. It supports both **mock email data** (for demos/testing) and **real Gmail integration** (for production use) via OAuth2.
+Claude Inbox is an AI-powered email triage assistant that runs in the terminal. It supports three modes:
+- **Mock mode** (default) - Uses sample email data from SQLite database for demos/testing
+- **Gmail mode** - Real Gmail integration via OAuth2 API
+- **IMAP mode** - Universal email support for any IMAP provider (Gmail, Outlook, Yahoo, ProtonMail, etc.)
 
 ## Email Writing Style Guidelines
 
@@ -56,8 +59,9 @@ Best regards,
 ### CLI Commands
 
 **Main Usage:**
-- `node dist/cli.js` - Run with mock email data
+- `node dist/cli.js` - Run with mock email data (default)
 - `node dist/cli.js --gmail` - Run with real Gmail account
+- `node dist/cli.js --imap` - Run with IMAP account (any email provider)
 - `node dist/cli.js --reset` - Reset mock emails to unread (for demo/testing)
 - `node dist/cli.js --debug` - Enable debug mode with additional information
 
@@ -65,8 +69,15 @@ Best regards,
 - `node dist/cli.js setup` - Configure Anthropic API key
 - `node dist/cli.js setup-gmail` - Authenticate with Gmail via OAuth2
 - `node dist/cli.js revoke-gmail` - Revoke Gmail authentication
+- `node dist/cli.js setup-imap` - Configure IMAP account (interactive setup)
 - `node dist/cli.js test` - Test API key configuration
 - `node dist/cli.js status` - Show current configuration status
+
+**IMAP Sync Commands:**
+- `node dist/cli.js sync` - Sync last 7 days of emails from IMAP
+- `node dist/cli.js sync --days 30` - Sync last 30 days
+- `node dist/cli.js sync --full` - Full sync (last 30 days, all folders)
+- `node dist/cli.js sync --unread` - Sync only unread emails
 
 ### Gmail Setup
 
@@ -94,6 +105,37 @@ Best regards,
 - Tokens are auto-refreshed when expired
 - Required scopes: gmail.readonly, gmail.modify, gmail.compose, gmail.send
 
+### IMAP Setup
+
+**First Time IMAP Setup:**
+1. Configure IMAP account interactively:
+   ```bash
+   npm run build
+   node dist/cli.js setup-imap
+   ```
+   You'll be prompted for:
+   - Email address
+   - App-specific password (or regular password)
+   - IMAP host (e.g., imap.gmail.com, outlook.office365.com)
+   - IMAP port (default: 993)
+
+2. Sync your emails to local database:
+   ```bash
+   node dist/cli.js sync --full
+   ```
+
+3. Run with IMAP:
+   ```bash
+   node dist/cli.js --imap
+   ```
+
+**IMAP Configuration Details:**
+- Config stored in: `~/.claude-inbox/imap-config.json`
+- Emails synced to: `~/.claude-inbox/emails.db` (SQLite)
+- Supports all major providers: Gmail, Outlook, Yahoo, ProtonMail, FastMail, etc.
+- For Gmail: Use app-specific password (create at https://myaccount.google.com/apppasswords)
+- Connection test performed during setup to validate credentials
+
 ### Development Workflow
 Always run `npm run build` after making TypeScript changes before testing with `npm run start`. Use `npm run dev` for active development with auto-reload.
 
@@ -115,10 +157,26 @@ The app follows a state machine pattern with these main states:
 
 ### Service Layer
 
+**Data Storage:**
+- **EmailDatabase** - SQLite database with FTS5 full-text search, handles all email storage and querying
+  - Location: `~/.claude-inbox/emails.db` (real emails) or `~/.claude-inbox/mock-emails.db` (mock data)
+  - Features: Full-text search, advanced filtering, recipient tracking, attachment metadata
+  - Database triggers for automatic FTS index updates
+- **seed-mock-data** - Seeds SQLite database from `mock-data/inbox.json` for demo/testing
+
 **Email Services:**
-- **MockInboxService** - Manages mock email data from `mock-data/inbox.json`, handles read/unread state persistence
-- **GmailService** - Real Gmail API integration via OAuth2, supports Gmail query syntax and log file pattern
-- **GmailAuthService** - Handles OAuth2 authentication flow with token storage and auto-refresh
+- **EmailService** - Unified email service supporting three modes (mock/gmail/imap)
+  - Uses EmailDatabase as backend for all modes
+  - Provides consistent API regardless of email source
+- **ImapManager** - IMAP connection management with Gmail query syntax support
+  - Singleton pattern with connection pooling
+  - Parallel batch fetching for performance
+  - X-GM-RAW support for native Gmail search operators
+- **EmailSyncService** - Syncs emails from IMAP to SQLite database
+  - Incremental sync with duplicate detection
+  - Supports multiple folders and date ranges
+- **GmailService** - Gmail API integration via OAuth2 (alternative to IMAP)
+- **GmailAuthService** - OAuth2 authentication flow with token storage and auto-refresh
 
 **AI Services:**
 - **AIService** - Claude API integration with batch processing, personalized writing style, and intelligent fallbacks
@@ -132,19 +190,44 @@ The app follows a state machine pattern with these main states:
 - **RefinementQueue** - Handles async draft refinement with multi-turn support
 
 ### Data Flow
-1. MockInboxService loads 25 mock emails from JSON
-2. Dashboard shows first 10 unread emails
-3. DraftReview processes emails individually:
+
+**Mock Mode:**
+1. EmailService checks SQLite database at `~/.claude-inbox/mock-emails.db`
+2. If empty, seeds 25 mock emails from `mock-data/inbox.json`
+3. All email operations use SQLite with FTS5 search
+4. Dashboard shows first 10 unread emails from database
+5. Email read/unread state persists to SQLite
+
+**IMAP Mode:**
+1. EmailSyncService fetches emails from IMAP server
+2. Syncs to SQLite database at `~/.claude-inbox/emails.db`
+3. EmailService reads from SQLite (not IMAP directly)
+4. Dashboard shows unread emails from database
+5. Email operations update both SQLite and IMAP server
+
+**Gmail Mode:**
+1. Similar to IMAP but uses Gmail API instead
+2. OAuth2 authentication with auto-refresh tokens
+3. All data cached in SQLite for fast access
+
+**Processing Flow:**
+1. DraftReview processes emails individually:
    - AI generates summary for each email
    - AI generates draft if email needs response
    - User reviews each email one by one
    - Background processing prepares next email while user reviews
-4. Components pass state up through callback props
-5. Email read/unread state persists to JSON file
+2. Components pass state up through callback props
 
 ## Technology Stack
 
 - **Framework**: Node.js with TypeScript ES modules
+- **Database**: SQLite with better-sqlite3 driver
+  - FTS5 (Full-Text Search 5) virtual tables for fast email search
+  - Separate databases for mock vs real emails
+- **Email Protocols**:
+  - IMAP via node-imap (universal email support)
+  - Gmail API via googleapis (OAuth2)
+  - mailparser for MIME message parsing
 - **UI**: Ink (React for CLI) with components for each workflow state
 - **CLI**: Commander for argument parsing and help
 - **Input**: Ink's useInput for keyboard interaction (Y/N, Tab, Edit, Skip)
@@ -174,14 +257,26 @@ Set `ANTHROPIC_API_KEY` environment variable to enable real AI features.
 - State transitions are managed through callback props between components
 
 ### Email State Management
-- All 25 mock emails start as unread
-- Processed emails are marked as read in the JSON file
+- **Mock Mode**: All 25 mock emails start as unread in SQLite database
+- **IMAP/Gmail Mode**: Email state synced from server to SQLite
+- Processed emails are marked as read in SQLite database
 - Batch processing tracks offset to handle remaining emails
-- --reset flag restores all emails to unread for demo purposes
+- `--reset` flag (mock mode only) clears database and reseeds all emails as unread
+
+### Database File Locations
+- **Mock emails**: `~/.claude-inbox/mock-emails.db` (SQLite)
+- **Real emails**: `~/.claude-inbox/emails.db` (SQLite)
+- **Gmail tokens**: `~/.claude-inbox/gmail-token.json`
+- **IMAP config**: `~/.claude-inbox/imap-config.json`
+- **Search logs**: `~/.claude-inbox/logs/email-search-*.json`
 
 ### File Structure Significance
 - `src/types/email.ts` - Core interfaces shared across all components
-- `mock-data/inbox.json` - 25 realistic emails covering various scenarios
+- `src/services/email-database.ts` - SQLite database layer with FTS5 search
+- `src/services/email-service.ts` - Unified service for mock/gmail/imap modes
+- `src/services/imap-manager.ts` - IMAP connection and email fetching
+- `src/services/imap-sync.ts` - IMAP to SQLite sync service
+- `mock-data/inbox.json` - 25 realistic emails for seeding mock database
 - ES module imports use .js extensions (not .ts) due to TypeScript ES module compilation
 
 ## Advanced Features
@@ -206,10 +301,12 @@ The app uses specialized subagents defined in `.claude/agents/` directory (based
 
 The AgentClient provides custom MCP tools for inbox operations:
 
-**mcp__inbox__search_inbox** - Gmail query search
-- Supports full Gmail query syntax
-- For Gmail mode: Returns log file path with results
-- For Mock mode: Returns results directly
+**mcp__inbox__search_inbox** - Email search with Gmail query syntax
+- Supports full Gmail query syntax across all modes
+- For IMAP mode with Gmail: Uses X-GM-RAW for native Gmail search
+- For other IMAP providers: Translates to standard IMAP search criteria
+- Mock mode: Searches SQLite database with FTS5
+- Returns log file path for large result sets
 - Example: `from:alice budget report newer_than:7d`
 
 **mcp__inbox__read_email** - Read single email
@@ -225,7 +322,7 @@ The AgentClient provides custom MCP tools for inbox operations:
 
 ### Gmail Query Syntax
 
-Both Mock and Gmail modes support Gmail's powerful query operators:
+All three modes (Mock, Gmail, IMAP) support Gmail's powerful query operators:
 
 **Basic Operators:**
 - `from:email` - Emails from specific sender
@@ -243,17 +340,18 @@ Both Mock and Gmail modes support Gmail's powerful query operators:
 - `-` - Exclude: `invoice -draft`
 - `()` - Group terms: `from:vendor.com (invoice OR receipt)`
 
-### Log File Pattern (Gmail Mode)
+### Log File Pattern (All Modes)
 
-When using Gmail, search results are written to timestamped JSON log files:
-- Location: `~/.claude-inbox/logs/gmail-search-*.json`
+Search results are written to timestamped JSON log files for large result sets:
+- Location: `~/.claude-inbox/logs/email-search-*.json`
 - Contains: Full email data including bodies
 - Prevents context overflow with large result sets
+- Works in all modes: Mock, Gmail, IMAP
 - Claude can use Read/Grep tools to analyze logs
 
 Example workflow:
 ```
-1. search_inbox returns: { logFilePath: "logs/gmail-search-2025...json", ids: [...] }
+1. search_inbox returns: { logFilePath: "logs/email-search-2025...json", ids: [...] }
 2. Agent uses Read tool to examine log file
 3. Agent uses Grep to find specific patterns
 4. Agent uses read_emails with IDs for detailed analysis
@@ -279,16 +377,24 @@ Multi-turn conversations for draft refinement:
 
 **Email Sending:**
 - Currently simulation only (displays confirmation, doesn't actually send)
-- Future: Add Gmail send API integration
+- Future: Add Gmail send API integration and IMAP APPEND for sent items
 
 **Mock Mode:**
-- Gmail query syntax has limited support (basic search only)
-- No log file pattern (results returned directly)
-- 25 pre-defined mock emails
+- 25 pre-defined mock emails from `mock-data/inbox.json`
+- SQLite database provides full Gmail query syntax support via FTS5
 
 **Gmail Mode:**
 - Requires OAuth2 setup with Google Cloud Console for custom client ID/secret
 - Default test credentials provided but may have rate limits
+- Emails cached in SQLite for performance
+
+**IMAP Mode:**
+- Requires app-specific password for providers like Gmail
+- Must run `sync` command to fetch emails before use
+- Email operations update SQLite; server updates not yet implemented
+- Gmail query syntax support varies by provider:
+  - Full support with Gmail (uses X-GM-RAW)
+  - Limited translation for other IMAP providers
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.

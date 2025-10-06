@@ -12,15 +12,18 @@ import DraftReview from './components/DraftReview.js';
 interface AppProps {
   resetInbox?: boolean;
   debug?: boolean;
-  useGmail?: boolean;
+  useImap?: boolean;
 }
 
 type AppState = 'loading' | 'dashboard' | 'reviewing' | 'complete' | 'error';
 
-const App: React.FC<AppProps> = ({ resetInbox = false, debug = false, useGmail = false }) => {
+const App: React.FC<AppProps> = ({ resetInbox = false, debug = false, useImap = false }) => {
   const [state, setState] = useState<AppState>('loading');
   const [error, setError] = useState<string>('');
-  const [inboxService] = useState(() => new EmailService(useGmail ? 'gmail' : 'mock'));
+  const [inboxService] = useState(() => {
+    if (useImap) return new EmailService('imap');
+    return new EmailService('mock');
+  });
   const [emails, setEmails] = useState<Email[]>([]);
   const [processedDrafts, setProcessedDrafts] = useState<EmailDraft[]>([]);
   const [batchOffset, setBatchOffset] = useState(0);
