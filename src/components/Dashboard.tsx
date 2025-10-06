@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
-import { MockInboxService } from '../services/mockInbox.js';
+import { EmailService } from '../services/email-service.js';
 import { Email } from '../types/email.js';
 import { ConfigService } from '../services/config.js';
 
 interface DashboardProps {
-  inboxService: MockInboxService;
+  inboxService: EmailService;
   debug?: boolean;
   onStartBatch: () => void;
   batchOffset: number;

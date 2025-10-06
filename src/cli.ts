@@ -7,8 +7,7 @@ import App from './app.js';
 import Setup from './components/Setup.js';
 import { ConfigService } from './services/config.js';
 import { AIService } from './services/ai.js';
-import { MockInboxService } from './services/mockInbox.js';
-import { GmailService } from './services/gmail.js';
+import { EmailService } from './services/email-service.js';
 import { GmailAuthService } from './services/gmail-auth.js';
 
 const program = new Command();
@@ -134,7 +133,8 @@ program
     console.log('🧪 Testing API key configuration...\n');
 
     // Create temporary inbox service for testing
-    const tempInboxService = new MockInboxService();
+    const tempInboxService = new EmailService('mock');
+    await tempInboxService.loadInboxData();
     const aiService = new AIService(tempInboxService);
 
     const result = await aiService.testApiKey();

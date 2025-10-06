@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
-import { MockInboxService } from '../services/mockInbox.js';
+import { EmailService } from '../services/email-service.js';
 import { Email, EmailDraft } from '../types/email.js';
 import { AIService } from '../services/ai.js';
 import { ConfigService } from '../services/config.js';
@@ -33,7 +33,7 @@ const AnimatedDot: React.FC<{ status: 'processing' | 'success' | 'error' | 'defa
 };
 
 interface StreamingInterfaceProps {
-  inboxService: MockInboxService;
+  inboxService: EmailService;
   debug?: boolean;
   onComplete: (drafts: EmailDraft[]) => void;
   onBack: () => void;

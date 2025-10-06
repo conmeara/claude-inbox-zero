@@ -1,6 +1,6 @@
 import { query, createSdkMcpServer, tool, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { MockInboxService } from './mockInbox.js';
+import { EmailService } from './email-service.js';
 import * as path from 'path';
 
 export interface AgentQueryOptions {
@@ -19,11 +19,11 @@ export interface AgentQueryOptions {
  * Based on sample's ai-client.ts and custom-tools.ts patterns
  */
 export class AgentClient {
-  private inboxService: MockInboxService;
+  private inboxService: EmailService;
   private customTools: ReturnType<typeof createSdkMcpServer>;
   private defaultOptions: AgentQueryOptions;
 
-  constructor(inboxService: MockInboxService) {
+  constructor(inboxService: EmailService) {
     this.inboxService = inboxService;
     this.customTools = this.createCustomTools();
     this.defaultOptions = {

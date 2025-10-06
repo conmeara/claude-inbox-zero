@@ -7,13 +7,13 @@ import { AIService } from '../services/ai.js';
 import { EmailQueueManager } from '../services/email-queue-manager.js';
 import { RefinementQueue } from '../services/refinement-queue.js';
 import { InitialGenerationQueue } from '../services/initial-generation-queue.js';
-import { MockInboxService } from '../services/mockInbox.js';
+import { EmailService } from '../services/email-service.js';
 
 interface DraftReviewProps {
   emails: Email[];
   onComplete: (drafts: EmailDraft[]) => void;
   onBack: () => void;
-  inboxService: MockInboxService;
+  inboxService: EmailService;
   debug?: boolean;
   preInitializedAiService?: AIService | null;
   preInitializedQueueManager?: EmailQueueManager | null;

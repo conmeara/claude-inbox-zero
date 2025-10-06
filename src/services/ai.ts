@@ -1,7 +1,7 @@
 import { Email, EmailSummary, EmailDraft } from '../types/email.js';
 import { AgentClient } from './agent-client.js';
 import { SessionManager } from './session-manager.js';
-import { MockInboxService } from './mockInbox.js';
+import { EmailService } from './email-service.js';
 import { ConfigService } from './config.js';
 import { MemoryService } from './memory.js';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
@@ -16,7 +16,7 @@ export class AIService {
   private systemPrompt: string = '';
   private onProgress?: (message: string) => void;
 
-  constructor(inboxService: MockInboxService) {
+  constructor(inboxService: EmailService) {
     this.configService = new ConfigService();
     this.memoryService = new MemoryService();
     this.agentClient = new AgentClient(inboxService);
@@ -490,7 +490,7 @@ Provide an improved draft that addresses the feedback while maintaining professi
   ): Promise<string> {
     try {
       // Get or create session for this email
-      const session = this.sessionManager.getOrCreateSession(emailId);
+      const session = await this.sessionManager.getOrCreateSession(emailId);
 
       // Increment turn count
       this.sessionManager.incrementTurn(emailId);
@@ -511,7 +511,7 @@ Provide an improved draft that addresses the feedback while maintaining professi
 
       for await (const message of this.agentClient.queryStream(prompt, options)) {
         // Update session
-        this.sessionManager.updateSession(emailId, message);
+        await this.sessionManager.updateSession(emailId, message);
 
         // Progress updates
         if (onProgress && message.type === 'system' && message.subtype === 'init') {

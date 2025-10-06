@@ -97,7 +97,7 @@ export class RefinementQueue {
   private async processJob(job: RefinementJob): Promise<void> {
     try {
       // Get or create session for this email
-      const session = this.sessionManager.getOrCreateSession(job.emailId);
+      const session = await this.sessionManager.getOrCreateSession(job.emailId);
 
       // Increment turn count
       this.sessionManager.incrementTurn(job.emailId);
@@ -120,7 +120,7 @@ export class RefinementQueue {
       // Stream the refinement
       for await (const message of this.agentClient.queryStream(prompt, options)) {
         // Update session with message
-        this.sessionManager.updateSession(job.emailId, message);
+        await this.sessionManager.updateSession(job.emailId, message);
 
         // Extract result
         if (message.type === 'result' && message.subtype === 'success') {
