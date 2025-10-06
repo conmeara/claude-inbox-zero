@@ -521,8 +521,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
               />
             </Box>
             <Box marginTop={1}>
-              <Text color="gray">&gt;&gt; </Text>
-              <Text color="cyan">[Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate  [^E] Manual Edit  [Esc] Clear</Text>
+              <Text color="gray" dimColor>[Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate  [^E] Manual Edit  [Esc] Clear</Text>
             </Box>
             {(currentItem.refinementCount ?? 0) > 0 && (
               <Text color="gray">
@@ -543,7 +542,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
           </Box>
 
           <Box flexDirection="column" marginTop={1}>
-            <Text color="cyan">
+            <Text color="gray" dimColor>
               [Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate
             </Text>
             <Text color="gray" dimColor>
@@ -558,7 +557,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
           </Box>
 
           <Box flexDirection="column" marginTop={1}>
-            <Text color="cyan">
+            <Text color="gray" dimColor>
               [Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate
             </Text>
           </Box>
