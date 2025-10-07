@@ -60,7 +60,7 @@ const Dashboard = ({ inboxService, debug = false, onStartBatch, batchOffset, rea
                     Math.min(currentBatch.length, 10),
                     " unread emails"),
                 React.createElement(Box, { marginTop: 1, flexDirection: "column" }, currentBatch.slice(0, 10).map((email, index) => (React.createElement(Box, { key: email.id },
-                    React.createElement(Text, { color: "cyan" }, "\u2022 "),
+                    React.createElement(Text, { color: email.requiresResponse ? "green" : "gray" }, "\u25CF "),
                     React.createElement(Text, null, truncateSubject(email.subject)),
                     React.createElement(Text, { color: "gray" }, " - from "),
                     React.createElement(Text, null, email.from.name),

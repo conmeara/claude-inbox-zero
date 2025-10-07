@@ -26,7 +26,8 @@ export class EmailQueueManager {
       summary: '',
       draft: undefined,
       state: 'queued' as const,
-      refinementCount: 0
+      refinementCount: 0,
+      conversationHistory: []
     }));
 
     // Build index for fast lookup
@@ -114,6 +115,17 @@ export class EmailQueueManager {
     item.state = 'refining';
     item.refinementFeedback = feedback;
 
+    // Add user feedback to conversation history
+    if (!item.conversationHistory) {
+      item.conversationHistory = [];
+    }
+
+    item.conversationHistory.push({
+      type: 'user',
+      content: feedback,
+      timestamp: new Date()
+    });
+
     // Remove from current
     if (this.currentItem?.email.id === emailId) {
       this.currentItem = null;
@@ -130,6 +142,17 @@ export class EmailQueueManager {
     item.state = 'refined';
     item.refinedDraft = refinedDraft;
     item.refinementCount = (item.refinementCount || 0) + 1;
+
+    // Add refined draft to conversation history
+    if (!item.conversationHistory) {
+      item.conversationHistory = [];
+    }
+
+    item.conversationHistory.push({
+      type: 'refinement',
+      content: refinedDraft,
+      timestamp: new Date()
+    });
 
     // Update draft with refined content
     if (item.draft) {
@@ -216,6 +239,19 @@ export class EmailQueueManager {
     const item = this.itemsById.get(emailId);
     if (item) {
       item.draft = draft;
+
+      // Add initial draft to conversation history (only if first time)
+      if (!item.conversationHistory) {
+        item.conversationHistory = [];
+      }
+
+      if (item.conversationHistory.length === 0) {
+        item.conversationHistory.push({
+          type: 'draft',
+          content: draft.draftContent,
+          timestamp: new Date()
+        });
+      }
     }
   }
 

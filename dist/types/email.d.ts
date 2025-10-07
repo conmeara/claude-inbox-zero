@@ -30,6 +30,16 @@ export interface InboxData {
     emails: Email[];
 }
 export type EmailState = 'queued' | 'reviewing' | 'refining' | 'refined' | 'accepted' | 'skipped' | 'failed';
+export interface ConversationEntry {
+    type: 'draft' | 'user' | 'tool' | 'refinement';
+    content: string;
+    timestamp: Date;
+    metadata?: {
+        toolName?: string;
+        toolInput?: any;
+        toolOutput?: any;
+    };
+}
 export interface EmailQueueItem {
     email: Email;
     summary: string;
@@ -38,6 +48,7 @@ export interface EmailQueueItem {
     refinedDraft?: string;
     refinementFeedback?: string;
     refinementCount?: number;
+    conversationHistory?: ConversationEntry[];
 }
 export interface QueueStatus {
     primaryRemaining: number;

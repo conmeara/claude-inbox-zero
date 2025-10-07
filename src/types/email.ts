@@ -45,6 +45,18 @@ export type EmailState =
   | 'skipped'       // User skipped
   | 'failed';       // Refinement failed
 
+// Conversation history entry for tracking refinements
+export interface ConversationEntry {
+  type: 'draft' | 'user' | 'tool' | 'refinement';
+  content: string;
+  timestamp: Date;
+  metadata?: {
+    toolName?: string;
+    toolInput?: any;
+    toolOutput?: any;
+  };
+}
+
 // Email with processing state and metadata
 export interface EmailQueueItem {
   email: Email;
@@ -54,6 +66,7 @@ export interface EmailQueueItem {
   refinedDraft?: string;           // New draft after refinement
   refinementFeedback?: string;     // What user asked for
   refinementCount?: number;        // Number of refinements applied
+  conversationHistory?: ConversationEntry[];  // Full conversation history
 }
 
 // Queue status for UI display

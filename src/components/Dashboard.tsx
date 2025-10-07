@@ -96,7 +96,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <Box marginTop={1} flexDirection="column">
           {currentBatch.slice(0, 10).map((email, index) => (
             <Box key={email.id}>
-              <Text color="cyan">• </Text>
+              <Text color={email.requiresResponse ? "green" : "gray"}>● </Text>
               <Text>{truncateSubject(email.subject)}</Text>
               <Text color="gray"> - from </Text>
               <Text>{email.from.name}</Text>

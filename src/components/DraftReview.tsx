@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import TextInput from 'ink-text-input';
 import Spinner from 'ink-spinner';
-import { Email, EmailDraft, EmailQueueItem } from '../types/email.js';
+import { Email, EmailDraft, EmailQueueItem, ConversationEntry } from '../types/email.js';
 import { AIService } from '../services/ai.js';
 import { EmailQueueManager } from '../services/email-queue-manager.js';
 import { RefinementQueue } from '../services/refinement-queue.js';
@@ -442,11 +442,39 @@ const DraftReview: React.FC<DraftReviewProps> = ({
   }
 
   // Main review state
+  const getStateColor = (state: string) => {
+    switch (state) {
+      case 'reviewing': return 'cyan';
+      case 'refined': return 'green';
+      case 'refining': return 'yellow';
+      case 'accepted': return 'green';
+      case 'skipped': return 'gray';
+      case 'failed': return 'red';
+      default: return 'gray';
+    }
+  };
+
+  const getStateLabel = (state: string) => {
+    switch (state) {
+      case 'reviewing': return 'Reviewing';
+      case 'refined': return 'Refined';
+      case 'refining': return 'Refining';
+      case 'accepted': return 'Accepted';
+      case 'skipped': return 'Skipped';
+      case 'failed': return 'Failed';
+      default: return state;
+    }
+  };
+
   return (
     <Box flexDirection="column" paddingY={1}>
       {/* Header with queue status */}
       <Box marginBottom={1} flexDirection="column">
-        <Text bold>Email Review</Text>
+        <Box>
+          <Text bold>Email Review </Text>
+          <Text color={getStateColor(currentItem.state)}>● </Text>
+          <Text color={getStateColor(currentItem.state)}>{getStateLabel(currentItem.state)}</Text>
+        </Box>
         {(queueStatus.primaryRemaining > 0 || queueStatus.refinedWaiting > 0) && (
           <Text color="gray">
             {queueStatus.primaryRemaining > 0 ? `${queueStatus.primaryRemaining} unprocessed` : ''}
@@ -458,7 +486,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       {/* Show if this is a refined version */}
       {currentItem.state === 'refined' && (
         <Box marginBottom={1}>
-          <Text color="green">Refined based on your feedback</Text>
+          <Text color="green">● Refined based on your feedback</Text>
           {currentItem.refinementFeedback && (
             <Text color="gray"> (You asked: "{currentItem.refinementFeedback}")</Text>
           )}
@@ -468,23 +496,26 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       {/* Email context */}
       <Box flexDirection="column" marginBottom={1}>
         <Box>
-          <Text color="gray">From: </Text>
+          <Text color="gray">● From: </Text>
           <Text bold>{currentItem.email.from.name}</Text>
         </Box>
         <Box>
-          <Text color="gray">Subject: </Text>
+          <Text color="gray">● Subject: </Text>
           <Text>{currentItem.email.subject}</Text>
         </Box>
         <Box>
-          <Text color="gray">Date: </Text>
+          <Text color="gray">● Date: </Text>
           <Text color="gray">{formatDate(currentItem.email.date)}</Text>
         </Box>
       </Box>
 
       {/* AI Summary */}
       <Box flexDirection="column" marginBottom={1}>
-        <Text bold>Summary</Text>
-        <Box marginTop={1}>
+        <Box>
+          <Text color={currentItem.summary ? "green" : "yellow"}>● </Text>
+          <Text bold>Summary</Text>
+        </Box>
+        <Box marginTop={1} marginLeft={2}>
           {currentItem.summary ? (
             <Text>{currentItem.summary}</Text>
           ) : (
@@ -498,12 +529,57 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       {/* Draft or informational message */}
       {currentItem.draft ? (
         <>
-          <Box flexDirection="column" marginBottom={1}>
-            <Text bold>Draft Reply</Text>
-            <Box marginTop={1}>
-              <Text>{currentItem.draft.draftContent}</Text>
+          {/* Conversation History */}
+          {currentItem.conversationHistory && currentItem.conversationHistory.length > 0 ? (
+            <Box flexDirection="column" marginBottom={1}>
+              <Box>
+                <Text color="green">● </Text>
+                <Text bold>Draft Reply</Text>
+              </Box>
+              <Box flexDirection="column" marginTop={1} marginLeft={2}>
+                {currentItem.conversationHistory.map((entry, index) => (
+                  <Box key={index} flexDirection="column" marginBottom={1}>
+                    {entry.type === 'draft' && (
+                      <>
+                        {index > 0 && (
+                          <Box marginBottom={1}>
+                            <Text color="green">● </Text>
+                            <Text color="green">Draft {Math.floor(index / 2) + 1}</Text>
+                          </Box>
+                        )}
+                        <Text>{entry.content}</Text>
+                      </>
+                    )}
+                    {entry.type === 'user' && (
+                      <Box marginTop={1}>
+                        <Text color="cyan">&gt; </Text>
+                        <Text color="cyan">{entry.content}</Text>
+                      </Box>
+                    )}
+                    {entry.type === 'refinement' && (
+                      <>
+                        <Box marginTop={1} marginBottom={1}>
+                          <Text color="green">● </Text>
+                          <Text color="green">Refined Draft</Text>
+                        </Box>
+                        <Text>{entry.content}</Text>
+                      </>
+                    )}
+                  </Box>
+                ))}
+              </Box>
             </Box>
-          </Box>
+          ) : (
+            <Box flexDirection="column" marginBottom={1}>
+              <Box>
+                <Text color="green">● </Text>
+                <Text bold>Draft Reply</Text>
+              </Box>
+              <Box marginTop={1} marginLeft={2}>
+                <Text>{currentItem.draft.draftContent}</Text>
+              </Box>
+            </Box>
+          )}
 
           {/* Chat input */}
           <Box flexDirection="column" marginTop={1}>
@@ -519,18 +595,16 @@ const DraftReview: React.FC<DraftReviewProps> = ({
             <Box marginTop={1}>
               <Text color="gray">[Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate  [^E] Manual Edit  [Esc] Clear</Text>
             </Box>
-            {(currentItem.refinementCount ?? 0) > 0 && (
-              <Text color="gray">
-                (Refined {currentItem.refinementCount}x)
-              </Text>
-            )}
           </Box>
         </>
       ) : currentItem.email.requiresResponse ? (
         <>
           <Box flexDirection="column" marginBottom={1}>
-            <Text bold>Draft Reply</Text>
-            <Box marginTop={1}>
+            <Box>
+              <Text color="yellow">● </Text>
+              <Text bold>Draft Reply</Text>
+            </Box>
+            <Box marginTop={1} marginLeft={2}>
               <Text color="gray">
                 <Spinner type="dots" /> Generating draft reply...
               </Text>
@@ -549,7 +623,13 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       ) : (
         <>
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="gray">This email is informational only - no response needed.</Text>
+            <Box>
+              <Text color="gray">● </Text>
+              <Text color="gray">No response needed</Text>
+            </Box>
+            <Box marginTop={1} marginLeft={2}>
+              <Text color="gray">This email is informational only.</Text>
+            </Box>
           </Box>
 
           <Box flexDirection="column" marginTop={1}>
@@ -562,9 +642,12 @@ const DraftReview: React.FC<DraftReviewProps> = ({
 
       {/* Progress indicator */}
       <Box marginTop={1} justifyContent="space-between">
-        <Text color="gray">
-          Progress: {queueStatus.completed}/{queueStatus.completed + queueStatus.primaryRemaining + queueStatus.refinedWaiting + queueStatus.refining} emails
-        </Text>
+        <Box>
+          <Text color="gray">● Progress: </Text>
+          <Text color="gray">
+            {queueStatus.completed}/{queueStatus.completed + queueStatus.primaryRemaining + queueStatus.refinedWaiting + queueStatus.refining} emails
+          </Text>
+        </Box>
         {backgroundStatus && (
           <Text color="cyan">
             <Spinner type="dots" /> {backgroundStatus}
