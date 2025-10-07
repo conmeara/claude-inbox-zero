@@ -446,9 +446,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
     <Box flexDirection="column" paddingY={1}>
       {/* Header with queue status */}
       <Box marginBottom={1} flexDirection="column">
-        <Text color="cyan" bold>
-          📧 Email Review
-        </Text>
+        <Text bold>Email Review</Text>
         {(queueStatus.primaryRemaining > 0 || queueStatus.refinedWaiting > 0) && (
           <Text color="gray">
             {queueStatus.primaryRemaining > 0 ? `${queueStatus.primaryRemaining} unprocessed` : ''}
@@ -460,7 +458,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       {/* Show if this is a refined version */}
       {currentItem.state === 'refined' && (
         <Box marginBottom={1}>
-          <Text color="green">✓ This draft was refined based on your feedback!</Text>
+          <Text color="green">Refined based on your feedback</Text>
           {currentItem.refinementFeedback && (
             <Text color="gray"> (You asked: "{currentItem.refinementFeedback}")</Text>
           )}
@@ -471,11 +469,11 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       <Box flexDirection="column" marginBottom={1}>
         <Box>
           <Text color="gray">From: </Text>
-          <Text color="green" bold>{currentItem.email.from.name}</Text>
+          <Text bold>{currentItem.email.from.name}</Text>
         </Box>
         <Box>
           <Text color="gray">Subject: </Text>
-          <Text color="white">"{currentItem.email.subject}"</Text>
+          <Text>{currentItem.email.subject}</Text>
         </Box>
         <Box>
           <Text color="gray">Date: </Text>
@@ -485,10 +483,10 @@ const DraftReview: React.FC<DraftReviewProps> = ({
 
       {/* AI Summary */}
       <Box flexDirection="column" marginBottom={1}>
-        <Text color="yellow">💡 Summary:</Text>
-        <Box marginLeft={2}>
+        <Text bold>Summary</Text>
+        <Box marginTop={1}>
           {currentItem.summary ? (
-            <Text color="white">{currentItem.summary}</Text>
+            <Text>{currentItem.summary}</Text>
           ) : (
             <Text color="gray">
               <Spinner type="dots" /> Generating summary...
@@ -501,12 +499,10 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       {currentItem.draft ? (
         <>
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="yellow" bold>📝 Draft Reply:</Text>
-            <Text color="gray">─────────────────────────────────────────────────────────────────────</Text>
-            <Box marginLeft={2} marginY={1}>
-              <Text color="white">{currentItem.draft.draftContent}</Text>
+            <Text bold>Draft Reply</Text>
+            <Box marginTop={1}>
+              <Text>{currentItem.draft.draftContent}</Text>
             </Box>
-            <Text color="gray">─────────────────────────────────────────────────────────────────────</Text>
           </Box>
 
           {/* Chat input */}
@@ -521,7 +517,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
               />
             </Box>
             <Box marginTop={1}>
-              <Text color="gray" dimColor>[Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate  [^E] Manual Edit  [Esc] Clear</Text>
+              <Text color="gray">[Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate  [^E] Manual Edit  [Esc] Clear</Text>
             </Box>
             {(currentItem.refinementCount ?? 0) > 0 && (
               <Text color="gray">
@@ -533,8 +529,8 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       ) : currentItem.email.requiresResponse ? (
         <>
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="yellow" bold>📝 Draft Reply:</Text>
-            <Box marginLeft={2} marginY={1}>
+            <Text bold>Draft Reply</Text>
+            <Box marginTop={1}>
               <Text color="gray">
                 <Spinner type="dots" /> Generating draft reply...
               </Text>
@@ -542,10 +538,10 @@ const DraftReview: React.FC<DraftReviewProps> = ({
           </Box>
 
           <Box flexDirection="column" marginTop={1}>
-            <Text color="gray" dimColor>
+            <Text color="gray">
               [Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate
             </Text>
-            <Text color="gray" dimColor>
+            <Text color="gray">
               (Draft will be ready shortly)
             </Text>
           </Box>
@@ -553,11 +549,11 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       ) : (
         <>
           <Box flexDirection="column" marginBottom={1}>
-            <Text color="blue">ℹ️  This email is informational only - no response needed.</Text>
+            <Text color="gray">This email is informational only - no response needed.</Text>
           </Box>
 
           <Box flexDirection="column" marginTop={1}>
-            <Text color="gray" dimColor>
+            <Text color="gray">
               [Tab] Accept  [⇧Tab] Skip  [⌘←→] Navigate
             </Text>
           </Box>

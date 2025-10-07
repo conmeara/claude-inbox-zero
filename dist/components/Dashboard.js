@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import TextInput from 'ink-text-input';
-import Spinner from 'ink-spinner';
 import { ConfigService } from '../services/config.js';
 const Dashboard = ({ inboxService, debug = false, onStartBatch, batchOffset, readyCount = 0, processingCount = 0 }) => {
     const [unreadEmails, setUnreadEmails] = useState([]);
@@ -9,7 +7,6 @@ const Dashboard = ({ inboxService, debug = false, onStartBatch, batchOffset, rea
     const [totalUnread, setTotalUnread] = useState(0);
     const [batchNumber, setBatchNumber] = useState(1);
     const [showPrompt, setShowPrompt] = useState(false);
-    const [searchText, setSearchText] = useState('');
     const configService = new ConfigService();
     const isReady = readyCount >= 3;
     useEffect(() => {
@@ -29,6 +26,10 @@ const Dashboard = ({ inboxService, debug = false, onStartBatch, batchOffset, rea
             else if (input.toLowerCase() === 'n') {
                 process.exit(0);
             }
+            else if (key.ctrl && input === 's') {
+                // TODO: Open settings dialog
+                console.log('Settings invoked (not yet implemented)');
+            }
         }
     });
     const formatDate = (dateString) => {
@@ -46,53 +47,49 @@ const Dashboard = ({ inboxService, debug = false, onStartBatch, batchOffset, rea
     return (React.createElement(Box, { flexDirection: "column", paddingY: 1 },
         React.createElement(Box, { borderStyle: "round", borderColor: "#CC785C", padding: 1, flexDirection: "column" },
             React.createElement(Box, { marginBottom: 1 },
-                React.createElement(Text, { color: "yellow" }, "\u2709\uFE0F  Welcome to Claude Inbox!")),
+                React.createElement(Text, { bold: true }, "Claude Inbox")),
             React.createElement(Box, { marginBottom: 1 },
-                React.createElement(Text, null,
+                React.createElement(Text, { color: "gray" },
                     "Unread Emails: ",
-                    React.createElement(Text, { bold: true, color: "yellow" }, totalUnread)),
+                    React.createElement(Text, { bold: true }, totalUnread)),
                 React.createElement(Text, { color: "gray" }, " \u2022 AI Mode: "),
-                React.createElement(Text, { color: configService.hasApiKey() ? "green" : "yellow" }, configService.hasApiKey() ? "Claude API" : "Pattern Matching")),
+                React.createElement(Text, { color: "gray" }, configService.hasApiKey() ? "Claude API" : "Pattern Matching")),
             React.createElement(Box, { flexDirection: "column", marginBottom: 1 },
-                React.createElement(Text, { color: "cyan" },
+                React.createElement(Text, { bold: true },
                     "First ",
                     Math.min(currentBatch.length, 10),
-                    " unread emails:"),
-                React.createElement(Text, { color: "gray" }, "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500"),
-                currentBatch.slice(0, 10).map((email, index) => (React.createElement(Box, { key: email.id, marginLeft: 2 },
-                    React.createElement(Text, { color: "white" },
-                        (index + 1).toString().padStart(2, ' '),
-                        "."),
-                    React.createElement(Text, { bold: true },
-                        "\"",
-                        truncateSubject(email.subject),
-                        "\""),
+                    " unread emails"),
+                React.createElement(Box, { marginTop: 1, flexDirection: "column" }, currentBatch.slice(0, 10).map((email, index) => (React.createElement(Box, { key: email.id },
+                    React.createElement(Text, { color: "cyan" }, "\u2022 "),
+                    React.createElement(Text, null, truncateSubject(email.subject)),
                     React.createElement(Text, { color: "gray" }, " - from "),
-                    React.createElement(Text, { color: "green" }, email.from.name),
+                    React.createElement(Text, null, email.from.name),
                     React.createElement(Text, { color: "gray" }, ", "),
-                    React.createElement(Text, { color: "gray" }, formatDate(email.date)))))),
+                    React.createElement(Text, { color: "gray" }, formatDate(email.date))))))),
             totalUnread > 10 && (React.createElement(Box, { marginBottom: 1 },
                 React.createElement(Text, { color: "gray" },
                     "(",
                     totalUnread - 10,
                     " more unread emails)")))),
         showPrompt && (React.createElement(Box, { flexDirection: "column", marginTop: 1 },
-            React.createElement(Box, { borderStyle: "round", borderColor: "white", borderDimColor: true, paddingX: 1, flexDirection: "row", alignItems: "center" },
-                React.createElement(Text, { color: "gray" },
-                    '>',
-                    " "),
-                React.createElement(TextInput, { value: searchText, onChange: setSearchText, placeholder: isReady ? "Ready to process all emails..." : "Preparing emails..." })),
+            processingCount > 0 && !isReady && (React.createElement(Box, { flexDirection: "column", marginBottom: 1 },
+                React.createElement(Box, { justifyContent: "space-between" },
+                    React.createElement(Text, { color: "gray" }, "Preparing emails..."),
+                    React.createElement(Text, { color: "gray" },
+                        readyCount,
+                        "/3 ready")),
+                React.createElement(Box, { marginTop: 1 },
+                    React.createElement(Text, { color: "cyan" }, '['),
+                    React.createElement(Text, { color: "cyan" }, '█'.repeat(Math.floor((readyCount / 3) * 20))),
+                    React.createElement(Text, { color: "gray" }, '░'.repeat(20 - Math.floor((readyCount / 3) * 20))),
+                    React.createElement(Text, { color: "cyan" }, ']'),
+                    React.createElement(Text, { color: "gray" },
+                        " ",
+                        Math.floor((readyCount / 3) * 100),
+                        "%")))),
             React.createElement(Box, { justifyContent: "space-between" },
-                React.createElement(Text, { color: isReady ? "white" : "gray", dimColor: !isReady }, isReady ? "Tab to Start" : "Waiting for emails to be ready..."),
-                processingCount > 0 && !isReady && (React.createElement(Text, { color: "cyan" },
-                    React.createElement(Spinner, { type: "dots" }),
-                    " Processing ",
-                    readyCount,
-                    "/3 emails...")),
-                isReady && (React.createElement(Text, { color: "green" },
-                    "\u2713 ",
-                    readyCount,
-                    " emails ready!"))))),
+                React.createElement(Text, { color: "gray" }, isReady ? "Press Tab to start processing emails" : "Waiting for emails to be ready..."),
+                isReady && (React.createElement(Text, { color: "gray" }, "Press Ctrl+S for settings"))))),
         debug && (React.createElement(Box, { flexDirection: "column", marginTop: 2, paddingTop: 1, borderStyle: "single", borderColor: "gray" },
             React.createElement(Text, { color: "gray" }, "Debug Info:"),
             React.createElement(Text, { color: "gray" },

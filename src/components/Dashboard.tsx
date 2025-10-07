@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import TextInput from 'ink-text-input';
-import Spinner from 'ink-spinner';
 import { EmailService } from '../services/email-service.js';
 import { Email } from '../types/email.js';
 import { ConfigService } from '../services/config.js';
@@ -28,7 +26,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [totalUnread, setTotalUnread] = useState(0);
   const [batchNumber, setBatchNumber] = useState(1);
   const [showPrompt, setShowPrompt] = useState(false);
-  const [searchText, setSearchText] = useState('');
   const configService = new ConfigService();
 
   const isReady = readyCount >= 3;
@@ -50,6 +47,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         onStartBatch();
       } else if (input.toLowerCase() === 'n') {
         process.exit(0);
+      } else if (key.ctrl && input === 's') {
+        // TODO: Open settings dialog
+        console.log('Settings invoked (not yet implemented)');
       }
     }
   });
@@ -74,41 +74,37 @@ const Dashboard: React.FC<DashboardProps> = ({
       <Box borderStyle="round" borderColor="#CC785C" padding={1} flexDirection="column">
         {/* Header */}
         <Box marginBottom={1}>
-          <Text color="yellow">
-            ✉️  Welcome to Claude Inbox!
-          </Text>
+          <Text bold>Claude Inbox</Text>
         </Box>
 
         {/* Inbox Summary */}
         <Box marginBottom={1}>
-          <Text>
-            Unread Emails: <Text bold color="yellow">{totalUnread}</Text>
+          <Text color="gray">
+            Unread Emails: <Text bold>{totalUnread}</Text>
           </Text>
           <Text color="gray"> • AI Mode: </Text>
-          <Text color={configService.hasApiKey() ? "green" : "yellow"}>
+          <Text color="gray">
             {configService.hasApiKey() ? "Claude API" : "Pattern Matching"}
           </Text>
         </Box>
 
         {/* Email Preview */}
         <Box flexDirection="column" marginBottom={1}>
-          <Text color="cyan">
-            First {Math.min(currentBatch.length, 10)} unread emails:
+          <Text bold>
+            First {Math.min(currentBatch.length, 10)} unread emails
           </Text>
-          <Text color="gray">─────────────────────────────────────────────────────────────────────</Text>
-          
+          <Box marginTop={1} flexDirection="column">
           {currentBatch.slice(0, 10).map((email, index) => (
-            <Box key={email.id} marginLeft={2}>
-              <Text color="white">
-                {(index + 1).toString().padStart(2, ' ')}. 
-              </Text>
-              <Text bold>"{truncateSubject(email.subject)}"</Text>
+            <Box key={email.id}>
+              <Text color="cyan">• </Text>
+              <Text>{truncateSubject(email.subject)}</Text>
               <Text color="gray"> - from </Text>
-              <Text color="green">{email.from.name}</Text>
+              <Text>{email.from.name}</Text>
               <Text color="gray">, </Text>
               <Text color="gray">{formatDate(email.date)}</Text>
             </Box>
           ))}
+          </Box>
         </Box>
 
         {totalUnread > 10 && (
@@ -120,29 +116,31 @@ const Dashboard: React.FC<DashboardProps> = ({
         )}
       </Box>
 
-      {/* Text Input Box and Navigation */}
+      {/* Progress Bar and Controls */}
       {showPrompt && (
         <Box flexDirection="column" marginTop={1}>
-          <Box borderStyle="round" borderColor="white" borderDimColor paddingX={1} flexDirection="row" alignItems="center">
-            <Text color="gray">{'>'} </Text>
-            <TextInput
-              value={searchText}
-              onChange={setSearchText}
-              placeholder={isReady ? "Ready to process all emails..." : "Preparing emails..."}
-            />
-          </Box>
+          {processingCount > 0 && !isReady && (
+            <Box flexDirection="column" marginBottom={1}>
+              <Box justifyContent="space-between">
+                <Text color="gray">Preparing emails...</Text>
+                <Text color="gray">{readyCount}/3 ready</Text>
+              </Box>
+              <Box marginTop={1}>
+                <Text color="cyan">{'['}</Text>
+                <Text color="cyan">{'█'.repeat(Math.floor((readyCount / 3) * 20))}</Text>
+                <Text color="gray">{'░'.repeat(20 - Math.floor((readyCount / 3) * 20))}</Text>
+                <Text color="cyan">{']'}</Text>
+                <Text color="gray"> {Math.floor((readyCount / 3) * 100)}%</Text>
+              </Box>
+            </Box>
+          )}
           <Box justifyContent="space-between">
-            <Text color={isReady ? "white" : "gray"} dimColor={!isReady}>
-              {isReady ? "Tab to Start" : "Waiting for emails to be ready..."}
+            <Text color="gray">
+              {isReady ? "Press Tab to start processing emails" : "Waiting for emails to be ready..."}
             </Text>
-            {processingCount > 0 && !isReady && (
-              <Text color="cyan">
-                <Spinner type="dots" /> Processing {readyCount}/3 emails...
-              </Text>
-            )}
             {isReady && (
-              <Text color="green">
-                ✓ {readyCount} emails ready!
+              <Text color="gray">
+                Press Ctrl+S for settings
               </Text>
             )}
           </Box>
