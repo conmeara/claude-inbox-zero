@@ -48,5 +48,19 @@ export class ConfigService {
         delete config.anthropicApiKey;
         this.saveConfig(config);
     }
+    /**
+     * Get concurrency setting from environment or default to 10
+     * Controls how many emails can be processed in parallel
+     */
+    getConcurrency() {
+        const envValue = process.env.CLAUDE_INBOX_CONCURRENCY;
+        if (envValue) {
+            const parsed = parseInt(envValue, 10);
+            if (!isNaN(parsed) && parsed > 0 && parsed <= 50) {
+                return parsed;
+            }
+        }
+        return 10; // Default to 10 concurrent emails
+    }
 }
 //# sourceMappingURL=config.js.map

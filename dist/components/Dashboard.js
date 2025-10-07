@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { ConfigService } from '../services/config.js';
-const Dashboard = ({ inboxService, debug = false, onStartBatch, batchOffset, readyCount = 0, processingCount = 0 }) => {
+const Dashboard = ({ inboxService, debug = false, onStartBatch, batchOffset, readyCount = 0, processingCount = 0, concurrency = 10 }) => {
     const [unreadEmails, setUnreadEmails] = useState([]);
     const [currentBatch, setCurrentBatch] = useState([]);
     const [totalUnread, setTotalUnread] = useState(0);
     const [batchNumber, setBatchNumber] = useState(1);
     const [showPrompt, setShowPrompt] = useState(false);
     const configService = new ConfigService();
-    const isReady = readyCount >= 3;
+    // Wait for concurrency # of emails to be ready (default 10)
+    const isReady = readyCount >= Math.min(concurrency, totalUnread);
     useEffect(() => {
         const emails = inboxService.getUnreadEmails();
         const batch = inboxService.getEmailBatch(10, batchOffset);
@@ -77,15 +78,17 @@ const Dashboard = ({ inboxService, debug = false, onStartBatch, batchOffset, rea
                     React.createElement(Text, { color: "gray" }, "Preparing emails..."),
                     React.createElement(Text, { color: "gray" },
                         readyCount,
-                        "/3 ready")),
+                        "/",
+                        Math.min(concurrency, totalUnread),
+                        " ready")),
                 React.createElement(Box, { marginTop: 1 },
                     React.createElement(Text, { color: "cyan" }, '['),
-                    React.createElement(Text, { color: "cyan" }, '█'.repeat(Math.floor((readyCount / 3) * 20))),
-                    React.createElement(Text, { color: "gray" }, '░'.repeat(20 - Math.floor((readyCount / 3) * 20))),
+                    React.createElement(Text, { color: "cyan" }, '█'.repeat(Math.floor((readyCount / Math.min(concurrency, totalUnread)) * 20))),
+                    React.createElement(Text, { color: "gray" }, '░'.repeat(20 - Math.floor((readyCount / Math.min(concurrency, totalUnread)) * 20))),
                     React.createElement(Text, { color: "cyan" }, ']'),
                     React.createElement(Text, { color: "gray" },
                         " ",
-                        Math.floor((readyCount / 3) * 100),
+                        Math.floor((readyCount / Math.min(concurrency, totalUnread)) * 100),
                         "%")))),
             React.createElement(Box, { justifyContent: "space-between" },
                 React.createElement(Text, { color: "gray" }, isReady ? "Press Tab to start processing emails" : "Waiting for emails to be ready..."),

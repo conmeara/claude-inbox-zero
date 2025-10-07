@@ -7,6 +7,7 @@ interface DashboardProps {
     batchOffset: number;
     readyCount?: number;
     processingCount?: number;
+    concurrency?: number;
 }
 declare const Dashboard: React.FC<DashboardProps>;
 export default Dashboard;

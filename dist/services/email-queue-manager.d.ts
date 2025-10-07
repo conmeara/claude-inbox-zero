@@ -20,7 +20,8 @@ export declare class EmailQueueManager {
     constructor(emails: Email[]);
     /**
      * Get the next email to review
-     * Priority: refined queue > primary queue
+     * Priority: refined queue > primary queue with summaries
+     * Only returns emails that have been processed (have summaries)
      */
     getNext(): EmailQueueItem | null;
     /**
@@ -71,6 +72,10 @@ export declare class EmailQueueManager {
      * Check if there are more emails to process
      */
     hasMore(): boolean;
+    /**
+     * Get count of emails that are ready to be reviewed (have summaries)
+     */
+    getReadyCount(): number;
     /**
      * Get queue status for UI display
      */

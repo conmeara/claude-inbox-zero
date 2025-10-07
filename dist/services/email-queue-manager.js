@@ -35,7 +35,8 @@ export class EmailQueueManager {
     }
     /**
      * Get the next email to review
-     * Priority: refined queue > primary queue
+     * Priority: refined queue > primary queue with summaries
+     * Only returns emails that have been processed (have summaries)
      */
     getNext() {
         // Priority 1: Show refined emails first (user is waiting for these)
@@ -47,16 +48,25 @@ export class EmailQueueManager {
             this.currentIndex = this.allItems.findIndex(i => i.email.id === item.email.id);
             return item;
         }
-        // Priority 2: Primary queue
-        if (this.primaryQueue.length > 0) {
-            const item = this.primaryQueue.shift();
+        // Priority 2: Primary queue - but only get items that are READY (have summaries)
+        // Find first item with a summary
+        let foundIndex = -1;
+        for (let i = 0; i < this.primaryQueue.length; i++) {
+            if (this.primaryQueue[i].summary) {
+                foundIndex = i;
+                break;
+            }
+        }
+        if (foundIndex !== -1) {
+            // Remove item from queue
+            const item = this.primaryQueue.splice(foundIndex, 1)[0];
             item.state = 'reviewing';
             this.currentItem = item;
             // Update index
             this.currentIndex = this.allItems.findIndex(i => i.email.id === item.email.id);
             return item;
         }
-        // All queues empty
+        // No ready items available
         return null;
     }
     /**
@@ -229,6 +239,21 @@ export class EmailQueueManager {
      */
     hasMore() {
         return this.primaryQueue.length > 0 || this.refinedQueue.length > 0;
+    }
+    /**
+     * Get count of emails that are ready to be reviewed (have summaries)
+     */
+    getReadyCount() {
+        let ready = 0;
+        // Count refined emails (always ready)
+        ready += this.refinedQueue.length;
+        // Count primary queue items with summaries
+        for (const item of this.primaryQueue) {
+            if (item.summary) {
+                ready++;
+            }
+        }
+        return ready;
     }
     /**
      * Get queue status for UI display

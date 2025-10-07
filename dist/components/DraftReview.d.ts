@@ -11,6 +11,7 @@ interface DraftReviewProps {
     onBack: () => void;
     inboxService: EmailService;
     debug?: boolean;
+    concurrency?: number;
     preInitializedAiService?: AIService | null;
     preInitializedQueueManager?: EmailQueueManager | null;
     preInitializedGenerationQueue?: InitialGenerationQueue | null;

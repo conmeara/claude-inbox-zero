@@ -5,6 +5,7 @@ import { AIService } from './services/ai.js';
 import { EmailQueueManager } from './services/email-queue-manager.js';
 import { InitialGenerationQueue } from './services/initial-generation-queue.js';
 import { RefinementQueue } from './services/refinement-queue.js';
+import { ConfigService } from './services/config.js';
 import Dashboard from './components/Dashboard.js';
 import DraftReview from './components/DraftReview.js';
 import { DefaultLayout } from './components/layouts/DefaultLayout.js';
@@ -12,7 +13,10 @@ import { ConfigProvider } from './contexts/ConfigContext.js';
 import { UIStateProvider } from './contexts/UIStateContext.js';
 import { SetupWizard } from './components/setup/SetupWizard.js';
 import { isFirstRun } from './utils/first-run-config.js';
-const AppContent = ({ resetInbox = false, debug = false, useImap = false }) => {
+const AppContent = ({ resetInbox = false, debug = false, useImap = false, concurrency: concurrencyProp }) => {
+    // Determine concurrency: CLI option > env var > default (10)
+    const configService = new ConfigService();
+    const concurrency = concurrencyProp || configService.getConcurrency();
     const [state, setState] = useState('loading');
     const [error, setError] = useState('');
     const [setupConfig, setSetupConfig] = useState(null);
@@ -69,22 +73,16 @@ const AppContent = ({ resetInbox = false, debug = false, useImap = false }) => {
                 const ai = new AIService(inboxService);
                 const manager = new EmailQueueManager(emails);
                 await ai.initialize();
-                const refQueue = new RefinementQueue(ai.getSessionManager(), ai.getAgentClient(), 3);
-                const genQueue = new InitialGenerationQueue(ai, 3);
+                const refQueue = new RefinementQueue(ai.getSessionManager(), ai.getAgentClient(), concurrency);
+                const genQueue = new InitialGenerationQueue(ai, concurrency);
                 // Set up generation queue listeners
                 genQueue.onComplete((emailId, summary, draft) => {
                     manager.updateSummary(emailId, summary);
                     if (draft) {
                         manager.updateDraft(emailId, draft);
                     }
-                    // Update ready count (items with summaries are ready)
-                    let ready = 0;
-                    for (let i = 0; i < emails.length; i++) {
-                        const item = manager.getItem(emails[i].id);
-                        if (item?.summary)
-                            ready++;
-                    }
-                    setReadyCount(ready);
+                    // Update ready count using queue manager's accurate method
+                    setReadyCount(manager.getReadyCount());
                     setProcessingCount(genQueue.getProcessingCount());
                 });
                 genQueue.onFailed((emailId, err) => {
@@ -97,12 +95,13 @@ const AppContent = ({ resetInbox = false, debug = false, useImap = false }) => {
                 setQueueManager(manager);
                 setGenerationQueue(genQueue);
                 setRefinementQueue(refQueue);
-                // Start processing first 3 emails
-                const emailsToProcess = emails.slice(0, 3);
-                for (const email of emailsToProcess) {
-                    await genQueue.enqueue(email);
+                // Enqueue ALL emails - the queue will process up to 'concurrency' at a time
+                // This ensures all emails are eventually processed, not just the first batch
+                for (const email of emails) {
+                    genQueue.enqueue(email); // No await - enqueue all immediately!
                 }
-                setProcessingCount(3);
+                // Processing count will be managed by queue (up to concurrency limit)
+                setProcessingCount(Math.min(concurrency, emails.length));
             }
             catch (err) {
                 console.error('Failed to initialize background processing:', err);
@@ -170,7 +169,7 @@ const AppContent = ({ resetInbox = false, debug = false, useImap = false }) => {
     }
     if (state === 'dashboard') {
         return (React.createElement(DefaultLayout, null,
-            React.createElement(Dashboard, { inboxService: inboxService, debug: debug, onStartBatch: handleStartBatch, batchOffset: batchOffset, readyCount: readyCount, processingCount: processingCount })));
+            React.createElement(Dashboard, { inboxService: inboxService, debug: debug, onStartBatch: handleStartBatch, batchOffset: batchOffset, readyCount: readyCount, processingCount: processingCount, concurrency: concurrency })));
     }
     if (state === 'complete') {
         const acceptedCount = processedDrafts.filter(d => d.status === 'accepted').length;
@@ -194,7 +193,7 @@ const AppContent = ({ resetInbox = false, debug = false, useImap = false }) => {
     }
     if (state === 'reviewing') {
         return (React.createElement(DefaultLayout, null,
-            React.createElement(DraftReview, { emails: emails, inboxService: inboxService, onComplete: handleReviewComplete, onBack: handleBack, debug: debug, preInitializedAiService: aiService, preInitializedQueueManager: queueManager, preInitializedGenerationQueue: generationQueue, preInitializedRefinementQueue: refinementQueue })));
+            React.createElement(DraftReview, { emails: emails, inboxService: inboxService, onComplete: handleReviewComplete, onBack: handleBack, debug: debug, concurrency: concurrency, preInitializedAiService: aiService, preInitializedQueueManager: queueManager, preInitializedGenerationQueue: generationQueue, preInitializedRefinementQueue: refinementQueue })));
     }
     return null;
 };

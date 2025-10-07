@@ -21,6 +21,14 @@ program
     .option('-r, --reset', 'Reset inbox to mark all emails as unread (for demo purposes)')
     .option('-d, --debug', 'Enable debug mode')
     .option('-i, --imap', 'Use IMAP account (works with any email provider)')
+    .option('-c, --concurrency <number>', 'Number of emails to process in parallel (default: 10, max: 50)', (value) => {
+    const parsed = parseInt(value, 10);
+    if (isNaN(parsed) || parsed < 1 || parsed > 50) {
+        console.error('Error: concurrency must be a number between 1 and 50');
+        process.exit(1);
+    }
+    return parsed;
+})
     .action(async (options) => {
     // Check if IMAP mode requires config
     if (options.imap) {
@@ -43,7 +51,8 @@ program
                     render(React.createElement(App, {
                         resetInbox: options.reset,
                         debug: options.debug,
-                        useImap: options.imap
+                        useImap: options.imap,
+                        concurrency: options.concurrency
                     }));
                 }, 100);
             }
@@ -54,7 +63,8 @@ program
         render(React.createElement(App, {
             resetInbox: options.reset,
             debug: options.debug,
-            useImap: options.imap
+            useImap: options.imap,
+            concurrency: options.concurrency
         }));
     }
 });

@@ -6,12 +6,12 @@ import { AIService } from '../services/ai.js';
 import { EmailQueueManager } from '../services/email-queue-manager.js';
 import { RefinementQueue } from '../services/refinement-queue.js';
 import { InitialGenerationQueue } from '../services/initial-generation-queue.js';
-const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, preInitializedAiService, preInitializedQueueManager, preInitializedGenerationQueue, preInitializedRefinementQueue }) => {
+const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, concurrency = 10, preInitializedAiService, preInitializedQueueManager, preInitializedGenerationQueue, preInitializedRefinementQueue }) => {
     const [state, setState] = useState('loading');
     const [queueManager] = useState(() => preInitializedQueueManager || new EmailQueueManager(emails));
     const [aiService] = useState(() => preInitializedAiService || new AIService(inboxService));
-    const [refinementQueue] = useState(() => preInitializedRefinementQueue || new RefinementQueue(aiService.getSessionManager(), aiService.getAgentClient(), 3));
-    const [generationQueue] = useState(() => preInitializedGenerationQueue || new InitialGenerationQueue(aiService, 3));
+    const [refinementQueue] = useState(() => preInitializedRefinementQueue || new RefinementQueue(aiService.getSessionManager(), aiService.getAgentClient(), concurrency));
+    const [generationQueue] = useState(() => preInitializedGenerationQueue || new InitialGenerationQueue(aiService, concurrency));
     const [currentItem, setCurrentItem] = useState(null);
     const [refinementInput, setRefinementInput] = useState('');
     const [manualEditInput, setManualEditInput] = useState('');
@@ -106,6 +106,11 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
                             const updated = queueManager.getItem(emailId);
                             return updated ? { ...updated } : prevItem;
                         }
+                        // If we're waiting (no current item) and an email just became ready, load it
+                        if (!prevItem && queueManager.getReadyCount() > 0) {
+                            const next = queueManager.getNext();
+                            return next || prevItem;
+                        }
                         return prevItem;
                     });
                 });
@@ -128,8 +133,9 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
                 // Only enqueue emails if not using pre-initialized queue
                 if (!preInitializedGenerationQueue) {
                     setLoadingMessage('Processing your emails...');
+                    // Enqueue all emails at once to start parallel processing
                     for (const email of emails) {
-                        await generationQueue.enqueue(email);
+                        generationQueue.enqueue(email); // No await - parallel!
                     }
                     setBackgroundStatus(`Processing ${emails.length} email${emails.length > 1 ? 's' : ''}...`);
                 }
@@ -167,7 +173,15 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
     const loadNextEmailImmediate = () => {
         const next = queueManager.getNext();
         if (!next) {
-            // All done!
+            // Check if there are still emails being processed
+            const stillProcessing = generationQueue.getPendingCount() > 0 || refinementQueue.getPendingCount() > 0;
+            if (stillProcessing) {
+                // Wait for processing to complete - stay in reviewing state with no current item
+                setCurrentItem(null);
+                setState('reviewing');
+                return;
+            }
+            // Truly all done!
             setState('complete');
             onComplete(queueManager.getAcceptedDrafts());
             return;
@@ -337,6 +351,31 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
                     stats.skipped))));
     }
     if (!currentItem) {
+        // Check if we're waiting for emails to finish processing
+        const stillProcessing = generationQueue.getPendingCount() > 0 || refinementQueue.getPendingCount() > 0;
+        if (stillProcessing) {
+            const status = queueManager.getStatus();
+            return (React.createElement(Box, { flexDirection: "column", paddingY: 1 },
+                React.createElement(Box, { marginBottom: 1 },
+                    React.createElement(Text, { color: "cyan" },
+                        React.createElement(Spinner, { type: "dots" })),
+                    React.createElement(Text, { color: "cyan" }, " Waiting for remaining emails to finish processing...")),
+                React.createElement(Box, null,
+                    React.createElement(Text, { color: "gray" }, "\u25CF Progress: "),
+                    React.createElement(Text, { color: "gray" },
+                        status.completed,
+                        "/",
+                        status.completed + status.primaryRemaining + status.refinedWaiting + status.refining,
+                        " emails"),
+                    React.createElement(Text, { color: "gray" }, " | "),
+                    React.createElement(Text, { color: "green" },
+                        queueManager.getReadyCount(),
+                        " ready"),
+                    React.createElement(Text, { color: "gray" }, " | "),
+                    React.createElement(Text, { color: "yellow" },
+                        generationQueue.getProcessingCount() + refinementQueue.getProcessingCount(),
+                        " processing"))));
+        }
         return (React.createElement(Box, { flexDirection: "column", paddingY: 1 },
             React.createElement(Text, { color: "gray" }, "Loading next email...")));
     }
@@ -457,18 +496,21 @@ const DraftReview = ({ emails, onComplete, onBack, inboxService, debug = false, 
                     React.createElement(Text, { color: "gray" }, "This email is informational only."))),
             React.createElement(Box, { flexDirection: "column", marginTop: 1 },
                 React.createElement(Text, { color: "gray" }, "[Tab] Accept  [\u21E7Tab] Skip  [\u2318\u2190\u2192] Navigate")))),
-        React.createElement(Box, { marginTop: 1, justifyContent: "space-between" },
-            React.createElement(Box, null,
-                React.createElement(Text, { color: "gray" }, "\u25CF Progress: "),
-                React.createElement(Text, { color: "gray" },
-                    queueStatus.completed,
-                    "/",
-                    queueStatus.completed + queueStatus.primaryRemaining + queueStatus.refinedWaiting + queueStatus.refining,
-                    " emails")),
-            backgroundStatus && (React.createElement(Text, { color: "cyan" },
-                React.createElement(Spinner, { type: "dots" }),
-                " ",
-                backgroundStatus))),
+        React.createElement(Box, { marginTop: 1 },
+            React.createElement(Text, { color: "gray" }, "\u25CF Progress: "),
+            React.createElement(Text, { color: "gray" },
+                queueStatus.completed,
+                "/",
+                queueStatus.completed + queueStatus.primaryRemaining + queueStatus.refinedWaiting + queueStatus.refining,
+                " emails"),
+            React.createElement(Text, { color: "gray" }, " | "),
+            React.createElement(Text, { color: "green" },
+                queueManager.getReadyCount(),
+                " ready"),
+            React.createElement(Text, { color: "gray" }, " | "),
+            React.createElement(Text, { color: "yellow" },
+                generationQueue.getProcessingCount() + refinementQueue.getProcessingCount(),
+                " processing")),
         debug && (React.createElement(Box, { flexDirection: "column", marginTop: 2, paddingTop: 1, borderStyle: "single", borderColor: "gray" },
             React.createElement(Text, { color: "gray" }, "Debug Info:"),
             React.createElement(Text, { color: "gray" },
