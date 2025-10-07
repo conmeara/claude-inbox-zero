@@ -11,6 +11,7 @@ interface DashboardProps {
   batchOffset: number;
   readyCount?: number;
   processingCount?: number;
+  concurrency?: number;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -19,7 +20,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   onStartBatch,
   batchOffset,
   readyCount = 0,
-  processingCount = 0
+  processingCount = 0,
+  concurrency = 10
 }) => {
   const [unreadEmails, setUnreadEmails] = useState<Email[]>([]);
   const [currentBatch, setCurrentBatch] = useState<Email[]>([]);
@@ -28,7 +30,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [showPrompt, setShowPrompt] = useState(false);
   const configService = new ConfigService();
 
-  const isReady = readyCount >= 3;
+  // Wait for concurrency # of emails to be ready (default 10)
+  const isReady = readyCount >= Math.min(concurrency, totalUnread);
 
   useEffect(() => {
     const emails = inboxService.getUnreadEmails();
@@ -123,14 +126,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             <Box flexDirection="column" marginBottom={1}>
               <Box justifyContent="space-between">
                 <Text color="gray">Preparing emails...</Text>
-                <Text color="gray">{readyCount}/3 ready</Text>
+                <Text color="gray">{readyCount}/{Math.min(concurrency, totalUnread)} ready</Text>
               </Box>
               <Box marginTop={1}>
                 <Text color="cyan">{'['}</Text>
-                <Text color="cyan">{'█'.repeat(Math.floor((readyCount / 3) * 20))}</Text>
-                <Text color="gray">{'░'.repeat(20 - Math.floor((readyCount / 3) * 20))}</Text>
+                <Text color="cyan">{'█'.repeat(Math.floor((readyCount / Math.min(concurrency, totalUnread)) * 20))}</Text>
+                <Text color="gray">{'░'.repeat(20 - Math.floor((readyCount / Math.min(concurrency, totalUnread)) * 20))}</Text>
                 <Text color="cyan">{']'}</Text>
-                <Text color="gray"> {Math.floor((readyCount / 3) * 100)}%</Text>
+                <Text color="gray"> {Math.floor((readyCount / Math.min(concurrency, totalUnread)) * 100)}%</Text>
               </Box>
             </Box>
           )}

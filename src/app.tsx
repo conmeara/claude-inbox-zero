@@ -6,6 +6,7 @@ import { AIService } from './services/ai.js';
 import { EmailQueueManager } from './services/email-queue-manager.js';
 import { InitialGenerationQueue } from './services/initial-generation-queue.js';
 import { RefinementQueue } from './services/refinement-queue.js';
+import { ConfigService } from './services/config.js';
 import Dashboard from './components/Dashboard.js';
 import DraftReview from './components/DraftReview.js';
 import { DefaultLayout } from './components/layouts/DefaultLayout.js';
@@ -18,11 +19,15 @@ interface AppProps {
   resetInbox?: boolean;
   debug?: boolean;
   useImap?: boolean;
+  concurrency?: number;
 }
 
 type AppState = 'setup' | 'loading' | 'dashboard' | 'reviewing' | 'complete' | 'error';
 
-const AppContent: React.FC<AppProps> = ({ resetInbox = false, debug = false, useImap = false }) => {
+const AppContent: React.FC<AppProps> = ({ resetInbox = false, debug = false, useImap = false, concurrency: concurrencyProp }) => {
+  // Determine concurrency: CLI option > env var > default (10)
+  const configService = new ConfigService();
+  const concurrency = concurrencyProp || configService.getConcurrency();
   const [state, setState] = useState<AppState>('loading');
   const [error, setError] = useState<string>('');
   const [setupConfig, setSetupConfig] = useState<{ emailMode: 'mock' | 'imap'; hasApiKey: boolean } | null>(null);
@@ -86,8 +91,8 @@ const AppContent: React.FC<AppProps> = ({ resetInbox = false, debug = false, use
         const manager = new EmailQueueManager(emails);
         await ai.initialize();
 
-        const refQueue = new RefinementQueue(ai.getSessionManager(), ai.getAgentClient(), 3);
-        const genQueue = new InitialGenerationQueue(ai, 3);
+        const refQueue = new RefinementQueue(ai.getSessionManager(), ai.getAgentClient(), concurrency);
+        const genQueue = new InitialGenerationQueue(ai, concurrency);
 
         // Set up generation queue listeners
         genQueue.onComplete((emailId, summary, draft) => {
@@ -96,13 +101,8 @@ const AppContent: React.FC<AppProps> = ({ resetInbox = false, debug = false, use
             manager.updateDraft(emailId, draft);
           }
 
-          // Update ready count (items with summaries are ready)
-          let ready = 0;
-          for (let i = 0; i < emails.length; i++) {
-            const item = manager.getItem(emails[i].id);
-            if (item?.summary) ready++;
-          }
-          setReadyCount(ready);
+          // Update ready count using queue manager's accurate method
+          setReadyCount(manager.getReadyCount());
           setProcessingCount(genQueue.getProcessingCount());
         });
 
@@ -118,12 +118,13 @@ const AppContent: React.FC<AppProps> = ({ resetInbox = false, debug = false, use
         setGenerationQueue(genQueue);
         setRefinementQueue(refQueue);
 
-        // Start processing first 3 emails
-        const emailsToProcess = emails.slice(0, 3);
-        for (const email of emailsToProcess) {
-          await genQueue.enqueue(email);
+        // Enqueue ALL emails - the queue will process up to 'concurrency' at a time
+        // This ensures all emails are eventually processed, not just the first batch
+        for (const email of emails) {
+          genQueue.enqueue(email); // No await - enqueue all immediately!
         }
-        setProcessingCount(3);
+        // Processing count will be managed by queue (up to concurrency limit)
+        setProcessingCount(Math.min(concurrency, emails.length));
       } catch (err) {
         console.error('Failed to initialize background processing:', err);
       }
@@ -219,6 +220,7 @@ const AppContent: React.FC<AppProps> = ({ resetInbox = false, debug = false, use
           batchOffset={batchOffset}
           readyCount={readyCount}
           processingCount={processingCount}
+          concurrency={concurrency}
         />
       </DefaultLayout>
     );
@@ -256,6 +258,7 @@ const AppContent: React.FC<AppProps> = ({ resetInbox = false, debug = false, use
           onComplete={handleReviewComplete}
           onBack={handleBack}
           debug={debug}
+          concurrency={concurrency}
           preInitializedAiService={aiService}
           preInitializedQueueManager={queueManager}
           preInitializedGenerationQueue={generationQueue}

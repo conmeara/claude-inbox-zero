@@ -15,6 +15,7 @@ interface DraftReviewProps {
   onBack: () => void;
   inboxService: EmailService;
   debug?: boolean;
+  concurrency?: number;
   preInitializedAiService?: AIService | null;
   preInitializedQueueManager?: EmailQueueManager | null;
   preInitializedGenerationQueue?: InitialGenerationQueue | null;
@@ -29,6 +30,7 @@ const DraftReview: React.FC<DraftReviewProps> = ({
   onBack,
   inboxService,
   debug = false,
+  concurrency = 10,
   preInitializedAiService,
   preInitializedQueueManager,
   preInitializedGenerationQueue,
@@ -38,9 +40,9 @@ const DraftReview: React.FC<DraftReviewProps> = ({
   const [queueManager] = useState(() => preInitializedQueueManager || new EmailQueueManager(emails));
   const [aiService] = useState(() => preInitializedAiService || new AIService(inboxService));
   const [refinementQueue] = useState(() =>
-    preInitializedRefinementQueue || new RefinementQueue(aiService.getSessionManager(), aiService.getAgentClient(), 3)
+    preInitializedRefinementQueue || new RefinementQueue(aiService.getSessionManager(), aiService.getAgentClient(), concurrency)
   );
-  const [generationQueue] = useState(() => preInitializedGenerationQueue || new InitialGenerationQueue(aiService, 3));
+  const [generationQueue] = useState(() => preInitializedGenerationQueue || new InitialGenerationQueue(aiService, concurrency));
 
   const [currentItem, setCurrentItem] = useState<EmailQueueItem | null>(null);
   const [refinementInput, setRefinementInput] = useState('');
@@ -140,6 +142,11 @@ const DraftReview: React.FC<DraftReviewProps> = ({
               const updated = queueManager.getItem(emailId);
               return updated ? { ...updated } : prevItem;
             }
+            // If we're waiting (no current item) and an email just became ready, load it
+            if (!prevItem && queueManager.getReadyCount() > 0) {
+              const next = queueManager.getNext();
+              return next || prevItem;
+            }
             return prevItem;
           });
         });
@@ -163,8 +170,9 @@ const DraftReview: React.FC<DraftReviewProps> = ({
         // Only enqueue emails if not using pre-initialized queue
         if (!preInitializedGenerationQueue) {
           setLoadingMessage('Processing your emails...');
+          // Enqueue all emails at once to start parallel processing
           for (const email of emails) {
-            await generationQueue.enqueue(email);
+            generationQueue.enqueue(email); // No await - parallel!
           }
           setBackgroundStatus(`Processing ${emails.length} email${emails.length > 1 ? 's' : ''}...`);
         } else {
@@ -204,7 +212,17 @@ const DraftReview: React.FC<DraftReviewProps> = ({
     const next = queueManager.getNext();
 
     if (!next) {
-      // All done!
+      // Check if there are still emails being processed
+      const stillProcessing = generationQueue.getPendingCount() > 0 || refinementQueue.getPendingCount() > 0;
+
+      if (stillProcessing) {
+        // Wait for processing to complete - stay in reviewing state with no current item
+        setCurrentItem(null);
+        setState('reviewing');
+        return;
+      }
+
+      // Truly all done!
       setState('complete');
       onComplete(queueManager.getAcceptedDrafts());
       return;
@@ -408,6 +426,33 @@ const DraftReview: React.FC<DraftReviewProps> = ({
   }
 
   if (!currentItem) {
+    // Check if we're waiting for emails to finish processing
+    const stillProcessing = generationQueue.getPendingCount() > 0 || refinementQueue.getPendingCount() > 0;
+
+    if (stillProcessing) {
+      const status = queueManager.getStatus();
+      return (
+        <Box flexDirection="column" paddingY={1}>
+          <Box marginBottom={1}>
+            <Text color="cyan">
+              <Spinner type="dots" />
+            </Text>
+            <Text color="cyan"> Waiting for remaining emails to finish processing...</Text>
+          </Box>
+          <Box>
+            <Text color="gray">● Progress: </Text>
+            <Text color="gray">
+              {status.completed}/{status.completed + status.primaryRemaining + status.refinedWaiting + status.refining} emails
+            </Text>
+            <Text color="gray"> | </Text>
+            <Text color="green">{queueManager.getReadyCount()} ready</Text>
+            <Text color="gray"> | </Text>
+            <Text color="yellow">{generationQueue.getProcessingCount() + refinementQueue.getProcessingCount()} processing</Text>
+          </Box>
+        </Box>
+      );
+    }
+
     return (
       <Box flexDirection="column" paddingY={1}>
         <Text color="gray">Loading next email...</Text>
@@ -641,18 +686,15 @@ const DraftReview: React.FC<DraftReviewProps> = ({
       )}
 
       {/* Progress indicator */}
-      <Box marginTop={1} justifyContent="space-between">
-        <Box>
-          <Text color="gray">● Progress: </Text>
-          <Text color="gray">
-            {queueStatus.completed}/{queueStatus.completed + queueStatus.primaryRemaining + queueStatus.refinedWaiting + queueStatus.refining} emails
-          </Text>
-        </Box>
-        {backgroundStatus && (
-          <Text color="cyan">
-            <Spinner type="dots" /> {backgroundStatus}
-          </Text>
-        )}
+      <Box marginTop={1}>
+        <Text color="gray">● Progress: </Text>
+        <Text color="gray">
+          {queueStatus.completed}/{queueStatus.completed + queueStatus.primaryRemaining + queueStatus.refinedWaiting + queueStatus.refining} emails
+        </Text>
+        <Text color="gray"> | </Text>
+        <Text color="green">{queueManager.getReadyCount()} ready</Text>
+        <Text color="gray"> | </Text>
+        <Text color="yellow">{generationQueue.getProcessingCount() + refinementQueue.getProcessingCount()} processing</Text>
       </Box>
 
       {/* Debug info */}
